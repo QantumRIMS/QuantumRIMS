@@ -1,0 +1,278 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  --brand-blue-start: #2a66e8;
+  --brand-blue-end: #123c8c;
+  --brand-yellow: #ffc01e;
+  --brand-yellow-text: #0d1733;
+
+  /* Premium dark palette — 3-level surface system */
+  --dark-bg:       #0F172A;  /* page background  — slate-900 w/ blue tint */
+  --dark-surface:  #1E293B;  /* cards / panels   — slate-800 */
+  --dark-elevated: #243347;  /* inputs / hovers  — between surface & border */
+  --dark-border:   #334155;  /* borders          — slate-700 */
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  body {
+    @apply antialiased bg-slate-50 text-slate-900 dark:bg-[#0F172A] dark:text-slate-100 transition-colors duration-200;
+    font-feature-settings: "cv02","cv03","cv04","cv11";
+  }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  /* Premium custom scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: #818cf8; }
+
+  /* Dark-mode scrollbar */
+  .dark ::-webkit-scrollbar-thumb { background: #334155; }
+  .dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
+}
+
+@layer utilities {
+  .animate-blob {
+    animation: blob 7s infinite;
+  }
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+  .animate-fade-in {
+    animation: fadeIn 0.4s ease both;
+  }
+  .animate-slide-up {
+    animation: slideUp 0.35s ease both;
+  }
+  .animate-shimmer {
+    animation: shimmer 2s infinite linear;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%);
+    background-size: 200% 100%;
+  }
+  .glass {
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .card-hover {
+    transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px -8px rgba(79,70,229,0.2);
+  }
+}
+
+@keyframes blob {
+  0% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@keyframes announcement-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(253, 184, 19, 0.6), 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(253, 184, 19, 0), 0 0 14px 4px rgba(59, 130, 246, 0.5);
+  }
+}
+
+@layer utilities {
+  .animate-announcement-glow {
+    border-radius: 9999px;
+    animation: announcement-glow 1.8s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-announcement-glow { animation: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DARK MODE GLOBAL OVERRIDES
+   3-level surface system:
+     Page bg  → var(--dark-bg)       #0F172A
+     Cards    → var(--dark-surface)  #1E293B
+     Inputs   → var(--dark-elevated) #243347
+     Borders  → var(--dark-border)   #334155
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Form inputs ── */
+.dark select,
+.dark input[type="text"],
+.dark input[type="number"],
+.dark input[type="date"],
+.dark input[type="email"],
+.dark input[type="password"],
+.dark textarea {
+  background-color: #243347 !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* Ensure <select> inside filter bars (bg-blue-50) get solid dark bg, not the badge tint */
+.dark select.bg-blue-50 {
+  background-color: #243347 !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+
+/* ── Tables ── */
+.dark table {
+  background-color: transparent !important;
+}
+.dark tbody {
+  background-color: var(--dark-surface) !important;
+}
+.dark tr {
+  border-color: #334155 !important;
+}
+.dark tr:hover {
+  background-color: rgba(51, 65, 85, 0.45) !important;
+}
+.dark td {
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+.dark th {
+  border-color: #334155 !important;
+}
+
+/* ── Page background — the outermost wrapper ── */
+.dark .min-h-screen,
+.dark body {
+  background-color: #0F172A !important;
+}
+
+/* ── Card / panel surfaces — sit on top of page bg with visible elevation ── */
+.dark .bg-white,
+.dark .bg-slate-50,
+.dark .bg-slate-100,
+.dark .bg-slate-200,
+.dark .bg-gray-50,
+.dark .bg-gray-100,
+.dark .bg-gray-200,
+.dark .bg-\[\#F8FAFC\],
+.dark .bg-\[\#F8FAFC\]\/50,
+.dark .bg-slate-50\/50,
+.dark .bg-slate-100\/50,
+.dark .bg-white\/95,
+.dark .bg-white\/90,
+.dark .bg-white\/80,
+.dark .bg-white\/75,
+.dark .bg-white\/60,
+.dark .bg-white\/50 {
+  background-color: #1E293B !important;
+  border-color: #334155 !important;
+}
+
+/* Filter bar bg-blue-50 containers — use a slightly tinted elevated surface */
+.dark .bg-blue-50:not(span):not(a):not(button) {
+  background-color: #1A2E46 !important;
+  border-color: #334155 !important;
+}
+
+/* ── Borders ── */
+.dark .border,
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-300,
+.dark .border-slate-350,
+.dark .border-gray-250,
+.dark .border-gray-200,
+.dark .border-gray-100 {
+  border-color: #334155 !important;
+}
+
+/* ── Text ── */
+.dark .text-slate-800,
+.dark .text-slate-700,
+.dark .text-slate-900,
+.dark .text-slate-600,
+.dark .text-gray-800,
+.dark .text-gray-700,
+.dark .text-gray-900,
+.dark .text-gray-600 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-slate-550,
+.dark .text-slate-500,
+.dark .text-slate-400,
+.dark .text-gray-500,
+.dark .text-gray-400 {
+  color: #94a3b8 !important;
+}
+
+.dark .text-slate-200,
+.dark .text-slate-100,
+.dark .text-gray-200,
+.dark .text-gray-100 {
+  color: #f1f5f9 !important;
+}
+
+/* ── "Export Excel" & similar outline-style action buttons ──
+   These use bg-white / border-slate-200 / text-slate-700 and become
+   invisible in dark because bg-white → same shade as page bg.
+   Give them a visibly elevated surface with a clear border. */
+.dark button.bg-white,
+.dark a.bg-white {
+  background-color: #243347 !important;
+  border-color: #4b6a96 !important;
+  color: #e2e8f0 !important;
+}
+.dark button.bg-white:hover,
+.dark a.bg-white:hover {
+  background-color: #1d4ed8 !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+/* ── Modal & Dialog backgrounds ── */
+.dark .fixed.inset-0.bg-slate-900\/50 {
+  background-color: rgba(3, 7, 18, 0.7) !important;
+}
+
+/* ── Status badges & pills ── */
+.dark .bg-green-50   { background-color: rgba(16, 185, 129, 0.15) !important; color: #34d399 !important; }
+.dark .bg-yellow-50  { background-color: rgba(245, 158, 11, 0.15) !important; color: #fbbf24 !important; }
+.dark .bg-red-50     { background-color: rgba(239, 68, 68, 0.15)  !important; color: #f87171 !important; }
+.dark .bg-blue-50    { background-color: rgba(59, 130, 246, 0.12) !important; color: #60a5fa !important; }
+.dark .bg-purple-50  { background-color: rgba(139, 92, 246, 0.15) !important; color: #a78bfa !important; }
+.dark .bg-violet-50  { background-color: rgba(109, 40, 217, 0.15) !important; color: #c084fc !important; }
+.dark .bg-indigo-50  { background-color: rgba(99, 102, 241, 0.15) !important; color: #818cf8 !important; }

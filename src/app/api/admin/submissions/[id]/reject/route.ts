@@ -1,0 +1,42 @@
+import { NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase'
+import { verifyToken, extractToken } from '@/lib/verifyAuth'
+
+export const dynamic = 'force-dynamic'
+
+export async function POST(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  const admin = createAdminClient()
+  const token = extractToken(request)
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await verifyToken(token)
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  let body: { remark: string }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
+
+  if (!body.remark || body.remark.trim() === '') {
+    return NextResponse.json({ error: 'Remark is required to reject a submission' }, { status: 400 })
+  }
+
+  const { error } = await admin
+    .from('submissions')
+    .update({
+      status: 'rejected',
+      rejection_remark: body.remark.trim(),
+      reviewed_at: new Date().toISOString()
+    })
+    .eq('id', params.id)
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ success: true })
+}

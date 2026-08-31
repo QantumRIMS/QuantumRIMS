@@ -1,0 +1,62 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Generated test artifacts
+*.log
+dummy.*
+test_*.pdf
+
+# Debug/test artifacts accumulated during dev
+/test_*.js
+/test_*.ts
+/test_*.xlsx
+/test_*.txt
+/create_test_*.js
+
+# Root scripts and backups
+/*.js
+/*.mjs
+/*.cjs
+/*.sh
+/*.py
+/*.txt
+/*.zip
+.excel_cache.json
+output.txt
+Reseach Publications - Template for Portal.xlsx
+carf_*/
+analysis/

@@ -1,0 +1,425 @@
+'use client'
+
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { ArrowLeft, Download, ExternalLink, Upload, Loader2, FileText, Search, CheckCircle, Trash2 } from 'lucide-react'
+import { useAdminAuth } from '@/context/AdminAuthContext'
+
+export default function PublicationsReportPage() {
+  const router = useRouter()
+  const { token } = useAdminAuth()
+  const [publications, setPublications] = useState<any[]>([])
+  const [pubYears, setPubYears] = useState<string[]>([])
+  const [activePubYear, setActivePubYear] = useState<string>('all')
+  const [departments, setDepartments] = useState<string[]>([])
+  const [activeDept, setActiveDept] = useState<string>('all')
+  const [months, setMonths] = useState<string[]>([])
+  const [activeMonth, setActiveMonth] = useState<string>('all')
+  const [activeDuplicate, setActiveDuplicate] = useState<string>('all')
+  const [textSearch, setTextSearch] = useState<string>('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [visiblePubCount, setVisiblePubCount] = useState(30)
+  const [loading, setLoading] = useState(true)
+  const [importing, setImporting] = useState(false)
+  const [importMode, setImportMode] = useState<'append' | 'replace'>('append')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const fetchPublications = useCallback(async (year: string, dept: string, month: string, duplicate: string, sDate: string, eDate: string, tok: string) => {
+    try {
+      setPublications([])
+      setVisiblePubCount(30)
+      const yearQuery = year === 'all' ? '' : year
+      const deptQuery = dept === 'all' ? '' : encodeURIComponent(dept)
+      const monthQuery = month === 'all' ? '' : encodeURIComponent(month)
+      const dupQuery = duplicate === 'all' ? '' : duplicate
+      const sDateQuery = sDate ? `&startDate=${sDate}` : ''
+      const eDateQuery = eDate ? `&endDate=${eDate}` : ''
+      const res = await fetch(`/api/admin/reports/publications?year=${yearQuery}&dept=${deptQuery}&month=${monthQuery}&duplicate=${dupQuery}${sDateQuery}${eDateQuery}&_t=${Date.now()}`, { headers: { Authorization: `Bearer ${tok}` } })
+      if (res.ok) {
+        const { data, departments: deptList, months: monthList } = await res.json()
+        setPublications(data || [])
+        
+        // Populate filters if this is the initial 'all' fetch
+        if (year === 'all' && dept === 'all' && month === 'all' && duplicate === 'all' && sDate === '' && eDate === '') {
+          const dbYears = (data || []).map((g: any) => String(g.academic_year || g.year || '')).filter(Boolean);
+          const uniqueYears = Array.from(new Set(dbYears)) as string[]
+          uniqueYears.sort((a, b) => b.localeCompare(a))
+          setPubYears(uniqueYears)
+          setDepartments(deptList || [])
+          setMonths(monthList || [])
+        }
+      } else {
+        console.error('Publications fetch failed', res.status)
+      }
+    } catch (err) {
+      console.error('Error in fetchPublications:', err)
+    }
+  }, [])
+
+
+  useEffect(() => {
+    if (!token) return
+    let mounted = true
+    const init = async () => {
+      await fetchPublications(activePubYear, activeDept, activeMonth, activeDuplicate, startDate, endDate, token)
+      if (mounted) setLoading(false)
+    }
+    init()
+    return () => { mounted = false }
+  }, [token, activePubYear, activeDept, activeMonth, activeDuplicate, startDate, endDate, fetchPublications])
+
+  const exportPublications = async () => {
+    if (!token) return
+    try {
+      const yearQuery = activePubYear === 'all' ? '' : activePubYear
+      const deptQuery = activeDept === 'all' ? '' : encodeURIComponent(activeDept)
+      const monthQuery = activeMonth === 'all' ? '' : encodeURIComponent(activeMonth)
+      const dupQuery = activeDuplicate === 'all' ? '' : activeDuplicate
+      
+      const queryParams = new URLSearchParams()
+      if (yearQuery) queryParams.set('year', yearQuery)
+      if (deptQuery) queryParams.set('dept', deptQuery)
+      if (monthQuery) queryParams.set('month', monthQuery)
+      if (dupQuery) queryParams.set('duplicate', dupQuery)
+      if (startDate) queryParams.set('startDate', startDate)
+      if (endDate) queryParams.set('endDate', endDate)
+      queryParams.set('token', token)
+      
+      const url = `/api/admin/reports/publications/export?${queryParams.toString()}`
+      
+      const res = await fetch(url)
+      if (!res.ok) throw new Error('Export failed')
+      const blob = await res.blob()
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = downloadUrl
+      const label = []
+      if (yearQuery) label.push(yearQuery)
+      if (deptQuery) label.push(deptQuery)
+      if (monthQuery) label.push(monthQuery)
+      if (dupQuery) label.push(`Dup_${dupQuery}`)
+      if (startDate) label.push(`From_${startDate}`)
+      if (endDate) label.push(`To_${endDate}`)
+      a.download = `Publications_${label.length ? label.join('_') : 'All'}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(downloadUrl)
+      a.remove()
+    } catch (err) {
+      console.error(err)
+      alert('Failed to export publications')
+    }
+  }
+
+  const handleUploadClick = (mode: 'append' | 'replace') => {
+    setImportMode(mode)
+    fileInputRef.current?.click()
+  }
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!token) return
+
+    if (importMode === 'replace') {
+      if (!confirm('WARNING: This will permanently delete ALL existing publications before importing the new file. Are you sure you want to replace all data?')) {
+        if (fileInputRef.current) fileInputRef.current.value = ''
+        return
+      }
+    }
+
+    try {
+      setImporting(true)
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('mode', importMode)
+
+      const res = await fetch('/api/admin/reports/publications/import', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      })
+
+      const result = await res.json()
+      if (res.ok) {
+        alert(`Import successful! ${importMode === 'replace' ? `Deleted ${result.deleted || 0} old records. ` : ''}Imported ${result.imported} new records. Skipped ${result.skipped} duplicates/invalid rows.`)
+        // Refresh table
+        await fetchPublications(activePubYear, activeDept, activeMonth, activeDuplicate, startDate, endDate, token)
+      } else {
+        alert(result.error || 'Failed to import')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Failed to import publications')
+    } finally {
+      setImporting(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const handleDelete = async (id: string, title: string, facultyName: string, source: string, cascade = false) => {
+    const confirmMsg = `Delete '${title}' by ${facultyName || 'Unknown'}? This cannot be undone.`
+    if (!cascade && !window.confirm(confirmMsg)) return
+
+    try {
+      const url = `/api/admin/reports/publications/${id}?source=${source}${cascade ? '&cascade=true' : ''}`
+      const res = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+
+      const data = await res.json()
+      if (res.status === 409 && data.error === 'linked_records') {
+        if (window.confirm(`This submission has ${data.count} linked incentive application(s). Delete those first, or confirm cascade delete.\n\nWould you like to delete the linked incentive applications too?`)) {
+          await handleDelete(id, title, facultyName, source, true)
+        }
+        return
+      }
+
+      if (res.ok) {
+        setPublications(prev => prev.filter(p => p.id !== id))
+      } else {
+        alert(data.error || 'Failed to delete record')
+      }
+    } catch (e: any) {
+      console.error(e)
+      alert('Error deleting record: ' + e.message)
+    }
+  }
+
+  if (loading) return <div className="p-8 text-center"><div className="w-8 h-8 mx-auto border-4 border-blue-600 border-t-transparent rounded-full animate-spin" /></div>
+
+  const filteredPublications = publications.filter(p => {
+    if (textSearch) {
+      const search = textSearch.toLowerCase()
+      if (!p.title?.toLowerCase().includes(search) &&
+          !p.authors?.toLowerCase().includes(search) &&
+          !p.doi?.toLowerCase().includes(search)) {
+        return false
+      }
+    }
+    return true
+  })
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0F172A] p-6 font-sans text-slate-900 dark:text-slate-100">
+      <div className="w-full mx-auto space-y-6">
+        <Link href="/admin/reports" className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium">
+          <ArrowLeft className="w-4 h-4" /> Back to Reports Overview
+        </Link>
+        
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <h1 className="text-3xl font-black text-[#0A3D8F]">Publications</h1>
+          <div className="flex items-center gap-3">
+            <input 
+              type="file" 
+              accept=".xlsx,.xls" 
+              ref={fileInputRef}
+              onChange={handleImport}
+              className="hidden" 
+            />
+            <button 
+              onClick={() => handleUploadClick('append')} 
+              disabled={importing}
+              className="flex items-center gap-2 bg-[#FDB813] hover:bg-yellow-400 text-[#0A3D8F] px-4 py-2 rounded-xl font-bold transition-all shadow-sm text-sm disabled:opacity-50"
+            >
+              {importing && importMode === 'append' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              {importing && importMode === 'append' ? 'Importing...' : 'Upload Excel'}
+            </button>
+            <button 
+              onClick={() => handleUploadClick('replace')} 
+              disabled={importing}
+              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl font-bold transition-all shadow-sm text-sm disabled:opacity-50"
+            >
+              {importing && importMode === 'replace' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              {importing && importMode === 'replace' ? 'Replacing...' : 'Replace All Data'}
+            </button>
+            <button onClick={exportPublications} className="flex items-center gap-2 bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-slate-700 hover:text-blue-700 dark:bg-slate-700 dark:border-slate-500 dark:text-slate-100 dark:hover:bg-blue-700 dark:hover:border-blue-500 dark:hover:text-white px-4 py-2 rounded-xl font-bold transition-all shadow-sm text-sm">
+              <Download className="w-4 h-4" /> Export Excel
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-[#1E293B] rounded-2xl shadow-sm border border-slate-200 dark:border-slate-600 overflow-hidden">
+          <div className="flex flex-wrap items-center gap-3 p-4 border-b border-slate-200 dark:border-slate-600 bg-blue-50 dark:bg-slate-800">
+              <select 
+                value={activePubYear} 
+                onChange={(e) => setActivePubYear(e.target.value)}
+                className="w-full md:w-auto bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-100 text-sm font-semibold rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Years</option>
+                {pubYears.map(yr => (
+                  <option key={yr} value={yr}>{yr}</option>
+                ))}
+              </select>
+              <div className="flex items-center gap-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-500 rounded-lg px-3 py-1">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">From:</span>
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-transparent text-slate-700 dark:text-slate-100 text-sm font-semibold focus:outline-none" />
+              </div>
+              <div className="flex items-center gap-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-500 rounded-lg px-3 py-1">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">To:</span>
+                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-transparent text-slate-700 dark:text-slate-100 text-sm font-semibold focus:outline-none" />
+                {(startDate || endDate) && (
+                  <button onClick={() => { setStartDate(''); setEndDate(''); }} className="ml-2 text-slate-400 hover:text-red-500">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                )}
+              </div>
+              <select 
+                value={activeMonth} 
+                onChange={(e) => setActiveMonth(e.target.value)}
+                className="w-full md:w-auto bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-100 text-sm font-semibold rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Months</option>
+                {months.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              <select 
+                value={activeDept} 
+                onChange={(e) => setActiveDept(e.target.value)}
+                className="w-full md:w-auto bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-100 text-sm font-semibold rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Departments</option>
+                {departments.map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+              <select 
+                value={activeDuplicate} 
+                onChange={(e) => setActiveDuplicate(e.target.value)}
+                className="w-full md:w-auto bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-100 text-sm font-semibold rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All (Incl. Duplicates)</option>
+                <option value="no">Originals Only</option>
+                <option value="yes">Duplicates Only</option>
+              </select>
+              <div className="flex items-center gap-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-500 rounded-lg px-3 py-1">
+                <input 
+                  type="text" 
+                  placeholder="Title, Author, DOI..."
+                  value={textSearch} 
+                  onChange={e => setTextSearch(e.target.value)} 
+                  className="bg-transparent text-slate-700 dark:text-slate-100 text-sm font-semibold focus:outline-none w-36" 
+                />
+                {textSearch && (
+                  <button onClick={() => setTextSearch('')} className="ml-1 text-slate-400 hover:text-red-500">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                )}
+              </div>
+              <div className="px-4 py-3 bg-white text-sm text-slate-500 font-medium border-l border-slate-200 text-center whitespace-nowrap ml-auto">
+                {filteredPublications.length} {filteredPublications.length === 1 ? 'Result' : 'Results'}
+              </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-[#0A3D8F] text-white">
+                <tr>
+                  <th className="px-4 py-3 font-semibold border-r border-blue-800">S.No</th>
+                  <th className="px-4 py-3 font-semibold border-r border-blue-800">Year</th>
+                  <th className="px-4 py-3 font-semibold border-r border-blue-800">Month</th>
+                  <th className="px-4 py-3 font-semibold border-r border-blue-800 min-w-[100px]">Date</th>
+                  <th className="px-4 py-3 font-semibold border-r border-blue-800 min-w-[200px]">Authors</th>
+                  <th className="px-4 py-3 font-semibold border-r border-blue-800 min-w-[250px]">Title</th>
+                  <th className="px-4 py-3 font-semibold border-r border-blue-800">Source Title</th>
+                  <th className="px-4 py-3 font-semibold border-r border-blue-800">Volume & Issue</th>
+                  <th className="px-4 py-3 font-semibold border-r border-blue-800">DOI</th>
+                  <th className="px-4 py-3 font-semibold border-r border-blue-800">Duplicates</th>
+                  <th className="px-4 py-3 font-semibold border-r border-blue-800">Link</th>
+                  <th className="px-4 py-3 font-semibold border-r border-blue-800">Proofs</th>
+                  <th className="px-4 py-3 font-semibold border-r border-blue-800">Doc Type (Scopus)</th>
+                  <th className="px-4 py-3 font-semibold border-r border-blue-800">Doc Type (Report)</th>
+                  <th className="px-4 py-3 font-semibold border-r border-blue-800">Dept</th>
+                  <th className="px-4 py-3 font-semibold border-r border-blue-800">Faculty Name</th>
+                  <th className="px-4 py-3 font-semibold text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredPublications.length === 0 ? (
+                  <tr><td colSpan={16} className="px-4 py-8 text-center text-slate-500 font-medium">No publications found.</td></tr>
+                ) : filteredPublications.slice(0, visiblePubCount).map((p, idx) => (
+                    <tr key={p.id} className="hover:bg-blue-50 transition-colors">
+                      <td className="px-4 py-3 border-r border-slate-100 font-medium text-slate-500 text-center">{p.s_no || idx + 1}</td>
+                      <td className="px-4 py-3 border-r border-slate-100 text-slate-700 font-bold text-center">{p.year || '—'}</td>
+                      <td className="px-4 py-3 border-r border-slate-100 text-slate-600 text-center">{p.publication_month || '—'}</td>
+                      <td className="px-4 py-3 border-r border-slate-100 text-slate-600 text-center">{p.publication_date || '—'}</td>
+                      <td className="px-4 py-3 border-r border-slate-100 text-slate-600 whitespace-normal min-w-[200px] text-xs">{p.authors}</td>
+                      <td className="px-4 py-3 border-r border-slate-100 font-medium text-[#0A3D8F] whitespace-normal min-w-[250px]">{p.title}</td>
+                      <td className="px-4 py-3 border-r border-slate-100 text-slate-600 whitespace-normal min-w-[150px]">{p.source_title}</td>
+                      <td className="px-4 py-3 border-r border-slate-100 text-slate-500">{p.volume && `Vol ${p.volume}`} {p.issue && `(${p.issue})`}</td>
+                      <td className="px-4 py-3 border-r border-slate-100 text-slate-600 max-w-[150px] truncate">{p.doi || '—'}</td>
+                      <td className="px-4 py-3 border-r border-slate-100 text-center">
+                        {p.is_duplicate ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Yes</span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800">No</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 border-r border-slate-100 text-slate-600 text-center">
+                        {p.link ? (
+                          <a href={p.link} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-700 inline-block"><ExternalLink className="w-4 h-4" /></a>
+                        ) : '—'}
+                      </td>
+                      <td className="px-4 py-3 border-r border-slate-100 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {p.proof_full_paper_url ? (
+                            <a href={p.proof_full_paper_url} target="_blank" rel="noreferrer"
+                               title="Full Paper" className="inline-flex items-center justify-center w-6 h-6 rounded bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors">
+                              <FileText className="w-3.5 h-3.5" />
+                            </a>
+                          ) : <span className="text-slate-300 text-xs">—</span>}
+                          {p.proof_scopus_url ? (
+                            <a href={p.proof_scopus_url} target="_blank" rel="noreferrer"
+                               title="Scopus Record" className="inline-flex items-center justify-center w-6 h-6 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors">
+                              <Search className="w-3.5 h-3.5" />
+                            </a>
+                          ) : null}
+                          {p.proof_published_url ? (
+                            <a href={p.proof_published_url} target="_blank" rel="noreferrer"
+                               title="Published Proof" className="inline-flex items-center justify-center w-6 h-6 rounded bg-green-100 text-green-700 hover:bg-green-200 transition-colors">
+                              <CheckCircle className="w-3.5 h-3.5" />
+                            </a>
+                          ) : null}
+                          {!p.proof_full_paper_url && !p.proof_scopus_url && !p.proof_published_url && (
+                            <span className="text-slate-300 text-xs">—</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 border-r border-slate-100 text-slate-600 text-xs">{p.document_type_scopus || '—'}</td>
+                      <td className="px-4 py-3 border-r border-slate-100 text-slate-600 text-xs">{p.document_type_report || '—'}</td>
+                      <td className="px-4 py-3 border-r border-slate-100 text-slate-600">{p.department}</td>
+                      <td className="px-4 py-3 border-r border-slate-100 text-slate-700 font-medium whitespace-normal min-w-[150px]">{p.faculty_name}</td>
+                      <td className="px-4 py-3 text-center">
+                        <button 
+                          onClick={() => handleDelete(p.id, p.title, p.faculty_name, p._source || 'legacy')}
+                          className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors"
+                          title="Delete record"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {filteredPublications.length > visiblePubCount && (
+            <div className="p-4 bg-slate-50 border-t border-slate-200 text-center">
+              <button 
+                onClick={() => setVisiblePubCount(prev => prev + 30)}
+                className="px-6 py-2 bg-white border border-slate-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 text-slate-600 font-semibold rounded-xl shadow-sm transition-all text-sm"
+              >
+                Load More ({filteredPublications.length - visiblePubCount} remaining)
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

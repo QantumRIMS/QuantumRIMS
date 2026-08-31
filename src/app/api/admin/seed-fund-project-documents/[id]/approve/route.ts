@@ -1,0 +1,32 @@
+import { NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase'
+import { verifyToken, extractToken } from '@/lib/verifyAuth'
+
+export async function POST(req: Request, { params }: { params: { id: string } }) {
+  const supabaseAdmin = createAdminClient()
+  try {
+    const token = extractToken(req)
+    if (!token) throw new Error('Unauthorized')
+    const authResult = await verifyToken(token)
+    if (!authResult) throw new Error('Unauthorized')
+
+    const { data, error } = await supabaseAdmin
+      .from('seed_fund_project_documents')
+      .update({
+        status: 'approved',
+        reviewed_at: new Date().toISOString()
+      })
+      .eq('id', params.id)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return NextResponse.json(data)
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || 'Internal server error' },
+      { status: error.message === 'Unauthorized' ? 401 : 500 }
+    )
+  }
+}
