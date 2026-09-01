@@ -51,6 +51,8 @@ test_*.pdf
 /*.js
 /*.mjs
 /*.cjs
+!/next.config.mjs
+!/postcss.config.mjs
 /*.sh
 /*.py
 /*.txt
