@@ -138,15 +138,21 @@ export async function GET(request: Request) {
     // ── 3. Merge & deduplicate (portal rows first, then legacy) ──────────────
     const combined = [...portalRows, ...allData]
 
-    // ── 4. Departments dropdown from both sources ───────────────────────────
-    const { data: allDeptsData } = await admin.from('legacy_incentives').select('department')
-    const deptSet = new Set<string>()
-    if (allDeptsData) allDeptsData.forEach((d: any) => d.department && deptSet.add(d.department));
-    (appData || []).forEach((a: any) => {
+    // ── 4. Departments and Years dropdown from both sources ───────────────────────────
+    const { data: legacyDepts } = await admin.rpc('get_distinct_column_values', { p_table_name: 'legacy_incentives', p_column_name: 'department' })
+    const { data: legacyYears } = await admin.rpc('get_distinct_column_values', { p_table_name: 'legacy_incentives', p_column_name: 'incentive_year' })
+
+    const deptSet = new Set<string>((legacyDepts || []).map((d: any) => d.val).filter(Boolean))
+    const yearSet = new Set<string>((legacyYears || []).map((y: any) => y.val).filter(Boolean))
+
+    ;(appData || []).forEach((a: any) => {
       const sub = Array.isArray(a.submissions) ? a.submissions[0] : a.submissions
       if (sub?.department) deptSet.add(sub.department)
+      if (sub?.year) yearSet.add(String(sub.year))
     })
+
     const departments = Array.from(deptSet).sort()
+    const years = Array.from(yearSet).sort().reverse()
 
     // ── 5. Sort: newest year first, then by credited date desc ───────────────
     const result = combined.sort((a: any, b: any) => {
@@ -157,7 +163,9 @@ export async function GET(request: Request) {
       return db - da
     })
 
-    return NextResponse.json({ data: result, departments })
+    const totalAmount = result.reduce((acc, c) => acc + (Number(c.received_amount) || 0), 0)
+
+    return NextResponse.json({ data: result, departments, years, totalAmount })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

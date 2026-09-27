@@ -38,15 +38,11 @@ export default function PublicationsReportPage() {
       const eDateQuery = eDate ? `&endDate=${eDate}` : ''
       const res = await fetch(`/api/admin/reports/publications?year=${yearQuery}&dept=${deptQuery}&month=${monthQuery}&duplicate=${dupQuery}${sDateQuery}${eDateQuery}&_t=${Date.now()}`, { headers: { Authorization: `Bearer ${tok}` } })
       if (res.ok) {
-        const { data, departments: deptList, months: monthList } = await res.json()
+        const { data, departments: deptList, years: yearList, months: monthList } = await res.json()
         setPublications(data || [])
         
-        // Populate filters if this is the initial 'all' fetch
-        if (year === 'all' && dept === 'all' && month === 'all' && duplicate === 'all' && sDate === '' && eDate === '') {
-          const dbYears = (data || []).map((g: any) => String(g.academic_year || g.year || '')).filter(Boolean);
-          const uniqueYears = Array.from(new Set(dbYears)) as string[]
-          uniqueYears.sort((a, b) => b.localeCompare(a))
-          setPubYears(uniqueYears)
+        if (year === 'all' && dept === 'all') {
+          setPubYears(yearList || [])
           setDepartments(deptList || [])
           setMonths(monthList || [])
         }

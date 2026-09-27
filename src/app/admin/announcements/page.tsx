@@ -91,7 +91,7 @@ export default function AdminAnnouncementsPage() {
   // Get session token once
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) { router.replace('/admin/login'); return }
+      if (!session) { router.replace('/login'); return }
       setToken(session.access_token)
     })
   }, [router])
@@ -102,7 +102,7 @@ export default function AdminAnnouncementsPage() {
         headers: { Authorization: `Bearer ${tok}` },
         cache: 'no-store'
       })
-      if (!res.ok) { router.replace('/admin/login'); return }
+      if (!res.ok) { router.replace('/login'); return }
       const { data } = await res.json()
       setAnnouncements(data || [])
 
@@ -125,7 +125,7 @@ export default function AdminAnnouncementsPage() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    router.replace('/admin/login')
+    router.replace('/login')
   }
 
   const handleSave = async (e: React.FormEvent) => {

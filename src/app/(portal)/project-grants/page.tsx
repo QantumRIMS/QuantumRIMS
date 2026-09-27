@@ -324,6 +324,7 @@ export default function ProjectGrantsPage() {
         {/* Generate Button */}
         <div className="flex flex-col items-center justify-center py-6 px-4 bg-blue-50/50 rounded-3xl border border-blue-100 border-dashed">
           <p className="text-slate-500 font-medium text-sm mb-4 text-center max-w-md">Verify the details above, then download your filled proposal form to be signed and scanned.</p>
+          <p className="text-slate-500 text-xs mb-4 text-center max-w-md bg-blue-50/50 p-2 rounded-lg">You can open this .docx in Word/Google Docs to print and sign, or sign it electronically and export as PDF before uploading.</p>
           <button 
             type="button" 
             onClick={handleDownloadProposal} 
@@ -331,7 +332,7 @@ export default function ProjectGrantsPage() {
             className="group flex items-center gap-3 bg-white border border-[#0A3D8F] text-[#0A3D8F] hover:bg-[#0A3D8F] hover:text-white px-8 py-4 rounded-xl font-bold transition-all shadow-sm disabled:opacity-50"
           >
             {isGeneratingProposal ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5 group-hover:-translate-y-0.5 transition-transform" />}
-            {isGeneratingProposal ? 'Generating Proposal...' : 'Download Proposal Form'}
+            {isGeneratingProposal ? 'Generating Proposal...' : 'Download Form (.docx)'}
           </button>
         </div>
 

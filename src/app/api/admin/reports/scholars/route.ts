@@ -25,26 +25,44 @@ export async function GET(request: Request) {
     if (startDate) query = query.gte('year_of_registration', startDate)
     if (endDate) query = query.lte('year_of_registration', endDate)
     
-    // get unique research centres for the dropdown
-    const { data: allDeptsData } = await admin.from('legacy_research_scholars').select('research_centre')
-    let departments: string[] = []
-    if (allDeptsData) {
-      const depts = new Set(allDeptsData.map(d => d.research_centre).filter(Boolean))
-      departments = Array.from(depts)
-    }
+    // get unique research centres for the dropdown via RPC
+    const { data: allDeptsData } = await admin.rpc('get_distinct_column_values', { p_table_name: 'legacy_research_scholars', p_column_name: 'research_centre' })
+    const { data: allYearsData } = await admin.rpc('get_distinct_column_values', { p_table_name: 'legacy_research_scholars', p_column_name: 'academic_year' })
 
-    const { data, error } = await query
-    if (error) throw error
+    const departments = allDeptsData ? allDeptsData.map((d: any) => d.val).filter(Boolean).sort() : []
+    const years = allYearsData ? allYearsData.map((y: any) => y.val).filter(Boolean).sort().reverse() : []
+
+    // Pagination for legacy_research_scholars
+    let allData: any[] = []
+    let from = 0
+    const step = 1000
+    while (true) {
+      let queryPage = admin.from('legacy_research_scholars').select('*').range(from, from + step - 1)
+      if (year && year !== 'all') queryPage = queryPage.eq('academic_year', year)
+      if (dept && dept !== 'all') queryPage = queryPage.eq('research_centre', dept)
+      if (startDate) queryPage = queryPage.gte('year_of_registration', startDate)
+      if (endDate) queryPage = queryPage.lte('year_of_registration', endDate)
+      
+      const { data, error } = await queryPage
+      if (error) throw error
+      if (data && data.length > 0) {
+        allData.push(...data)
+        if (data.length < step) break
+        from += step
+      } else {
+        break
+      }
+    }
     
     // Sort descending by academic year then year_of_registration
-    const result = (data || []).sort((a: any, b: any) => {
+    const result = allData.sort((a: any, b: any) => {
       if (a.academic_year !== b.academic_year) return (b.academic_year || '').localeCompare(a.academic_year || '')
       const da = a.year_of_registration ? new Date(a.year_of_registration).getTime() : 0
       const db = b.year_of_registration ? new Date(b.year_of_registration).getTime() : 0
       return db - da
     })
     
-    return NextResponse.json({ data: result, departments })
+    return NextResponse.json({ data: result, departments, years })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

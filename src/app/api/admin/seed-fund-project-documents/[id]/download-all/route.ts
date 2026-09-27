@@ -59,10 +59,8 @@ async function resolveUrl(raw: string): Promise<string> {
   return raw
 }
 
-export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   // ── Auth (local JWT, no network round-trip) ─────────────────────────────
   const token = extractToken(req)
   if (!token) {

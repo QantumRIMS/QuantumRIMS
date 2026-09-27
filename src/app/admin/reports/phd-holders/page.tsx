@@ -13,25 +13,31 @@ export default function PhdHoldersReportPage() {
   const { token } = useAdminAuth()
   const [phdHolders, setPhdHolders] = useState<any[]>([])
   const [departments, setDepartments] = useState<string[]>([])
+  const [years, setYears] = useState<string[]>([])
   const [activeDept, setActiveDept] = useState<string>('all')
+  const [activeYear, setActiveYear] = useState<string>('2026')
+  const [phdOnly, setPhdOnly] = useState<boolean>(false)
   const [visibleCount, setVisibleCount] = useState(50)
   const [loading, setLoading] = useState(true)
   const [importing, setImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const fetchRoster = useCallback(async (dept: string, tok: string) => {
+  const fetchRoster = useCallback(async (dept: string, year: string, phdFilter: boolean, tok: string) => {
     try {
       setPhdHolders([])
       setVisibleCount(50)
       const deptQuery = dept === 'all' ? '' : encodeURIComponent(dept)
-      const res = await fetch(`/api/admin/reports/phd-holders?dept=${deptQuery}&_t=${Date.now()}`, { headers: { Authorization: `Bearer ${tok}` } })
+      const res = await fetch(`/api/admin/reports/phd-holders?dept=${deptQuery}&year=${year}&phdOnly=${phdFilter}&_t=${Date.now()}`, { headers: { Authorization: `Bearer ${tok}` } })
       if (res.ok) {
-        const { data, departments: deptList } = await res.json()
+        const { data, departments: deptList, years: yearList } = await res.json()
         setPhdHolders(data || [])
         
-        // Populate filters if this is the initial 'all' fetch
+        // Populate filters if this is the initial 'all' fetch or if yearList is provided
         if (dept === 'all') {
           setDepartments(deptList || [])
+        }
+        if (yearList) {
+          setYears(yearList)
         }
       } else {
         console.error('PhD Holders fetch failed', res.status)
@@ -44,12 +50,12 @@ export default function PhdHoldersReportPage() {
     if (!token) return
     let mounted = true
     const init = async () => {
-      await fetchRoster(activeDept, token)
+      await fetchRoster(activeDept, activeYear, phdOnly, token)
       if (mounted) setLoading(false)
     }
     init()
     return () => { mounted = false }
-  }, [token, activeDept, fetchRoster])
+  }, [token, activeDept, activeYear, phdOnly, fetchRoster])
 
   const exportRoster = async () => {
     if (!token) return
@@ -58,6 +64,8 @@ export default function PhdHoldersReportPage() {
       
       const queryParams = new URLSearchParams()
       if (deptQuery) queryParams.set('dept', deptQuery)
+      queryParams.set('year', activeYear)
+      queryParams.set('phdOnly', phdOnly.toString())
       queryParams.set('token', token)
       
       const url = `/api/admin/reports/phd-holders/export?${queryParams.toString()}`
@@ -86,7 +94,7 @@ export default function PhdHoldersReportPage() {
     if (!file) return
     if (!token) return
 
-    if (!confirm(`This will replace the current roster of ${phdHolders.length} names — continue?`)) {
+    if (!confirm(`This will replace the roster for the academic year ${activeYear} — continue?`)) {
       if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
@@ -95,6 +103,7 @@ export default function PhdHoldersReportPage() {
       setImporting(true)
       const formData = new FormData()
       formData.append('file', file)
+      formData.append('year', activeYear)
 
       const res = await fetch('/api/admin/reports/phd-holders/import', {
         method: 'POST',
@@ -104,8 +113,8 @@ export default function PhdHoldersReportPage() {
 
       const result = await res.json()
       if (res.ok) {
-        alert(`Import successful! Roster replaced with ${result.replaced} records.`)
-        await fetchRoster(activeDept, token)
+        alert(`Import successful! Roster for ${activeYear} updated with ${result.replaced} records.`)
+        await fetchRoster(activeDept, activeYear, phdOnly, token)
       } else {
         alert(result.error || 'Failed to import')
       }
@@ -163,6 +172,25 @@ export default function PhdHoldersReportPage() {
                 {departments.map(dept => (
                   <option key={dept} value={dept}>{dept}</option>
                 ))}
+              </select>
+              
+              <select 
+                value={activeYear}
+                onChange={e => setActiveYear(e.target.value)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-blue-100 focus:outline-none bg-blue-50 text-blue-800 border-blue-200"
+              >
+                {years.map(yr => (
+                  <option key={yr} value={yr}>Academic Year {yr}</option>
+                ))}
+              </select>
+
+              <select 
+                value={phdOnly ? 'true' : 'false'}
+                onChange={e => setPhdOnly(e.target.value === 'true')}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-purple-100 focus:outline-none bg-purple-50 text-purple-800 border-purple-200"
+              >
+                <option value="false">All Faculty</option>
+                <option value="true">PhD Holders Only</option>
               </select>
             </div>
             

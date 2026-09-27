@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase'
 import { verifyToken } from '@/lib/verifyAuth'
 import { extractToken } from '@/lib/verifyAuth'
 
-import { fillTemplate, convertDocxToPdf } from '@/lib/fillDocxTemplate'
+import { fillTemplate } from '@/lib/fillDocxTemplate'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,19 +47,29 @@ export async function POST(request: Request) {
       co_investigators
     }
 
-    const templatePath = 'public/templates/CFRD_IRSF_01 - RESEARCH INITIAL REQUEST SCREENING FORM.docx'
-    const filledDocxBuffer = fillTemplate(templatePath, data)
-    const pdfBuffer = await convertDocxToPdf(filledDocxBuffer)
+    const { data: templateData } = await admin
+      .from('document_templates')
+      .select('file_url')
+      .eq('module', 'seed_fund')
+      .eq('doc_key', 'initial_screening_form')
+      .eq('is_current', true)
+      .single()
 
-    return new NextResponse(pdfBuffer as any, {
+    if (!templateData?.file_url) {
+      throw new Error('Template not found in database')
+    }
+
+    const filledDocxBuffer = await fillTemplate(templateData.file_url, data)
+
+    return new NextResponse(filledDocxBuffer as any, {
       status: 200,
       headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="Screening-Form.pdf"`
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'Content-Disposition': `attachment; filename="Screening_Form_${user.id}.docx"`
       }
     })
   } catch (error: any) {
-    console.error('Error generating screening form PDF:', error)
-    return NextResponse.json({ error: 'Failed to generate PDF' }, { status: 500 })
+    console.error('Error generating screening form:', error)
+    return NextResponse.json({ error: 'Failed to generate document' }, { status: 500 })
   }
 }

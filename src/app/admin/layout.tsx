@@ -42,7 +42,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Login page bypasses the whole layout — no nav, no auth redirect
-  const isLoginPage = pathname === '/admin/login'
+  const isLoginPage = pathname === '/login'
 
   useEffect(() => {
     if (isLoginPage) { setLoading(false); return }
@@ -50,13 +50,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     let mounted = true
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted) return
-      if (!session) { router.replace('/admin/login'); return }
+      if (!session) { router.replace('/login'); return }
       setSession(session)
       setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
-      if (!sess && !isLoginPage) router.replace('/admin/login')
+      if (!sess && !isLoginPage) router.replace('/login')
       else setSession(sess)
     })
 
@@ -66,7 +66,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const handleLogout = useCallback(async () => {
     try { await fetch('/api/auth/logout', { method: 'POST' }) } catch {}
     await supabase.auth.signOut()
-    router.replace('/admin/login')
+    router.replace('/login')
   }, [router])
 
   const isActive = (href: string) =>

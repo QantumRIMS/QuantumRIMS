@@ -28,13 +28,16 @@ export async function GET(request: Request) {
     const { data, error } = await query
     if (error) throw error
 
-    // Build departments list from unfiltered data (always all years/depts)
-    const { data: allRows } = await admin
-      .from('legacy_seed_fund_grants')
-      .select('dept')
-    const departments = [...new Set((allRows || []).map((r: any) => r.dept).filter(Boolean))].sort() as string[]
+    // Build departments and years list via RPC
+    const { data: deptData } = await admin.rpc('get_distinct_column_values', { p_table_name: 'legacy_seed_fund_grants', p_column_name: 'dept' })
+    const { data: yearData } = await admin.rpc('get_distinct_column_values', { p_table_name: 'legacy_seed_fund_grants', p_column_name: 'academic_year' })
+    
+    const departments = deptData ? deptData.map((d: any) => d.val).filter(Boolean).sort() : []
+    const years = yearData ? yearData.map((y: any) => y.val).filter(Boolean).sort().reverse() : []
 
-    return NextResponse.json({ data: data || [], departments })
+    const totalAmount = (data || []).reduce((acc, c) => acc + (Number(c.amount) || 0), 0)
+
+    return NextResponse.json({ data: data || [], departments, years, totalAmount })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

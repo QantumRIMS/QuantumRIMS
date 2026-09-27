@@ -77,6 +77,29 @@ export default function PatentsReportPage() {
     }
   }
 
+  const handlePatentTypeChange = async (id: string, newType: string) => {
+    if (!token) return
+    setUpdatingId(id + '-type')
+    try {
+      const res = await fetch('/api/admin/reports/patents/patent-type', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id, patent_type: newType })
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setPatents(prev => prev.map(p => p.id === id ? { ...p, patent_type: updated.patent_type } : p))
+      } else {
+        alert('Failed to update patent type')
+      }
+    } catch (err) {
+      console.error(err)
+      alert('Error updating patent type')
+    } finally {
+      setUpdatingId(null)
+    }
+  }
+
   const getGrantType = (inventors: string | undefined | null) => {
     if (!inventors) return 'Staff'
     const name = inventors.replace(/^\s*\d+[\).]\s*/, '').trim().toLowerCase()
@@ -94,6 +117,8 @@ export default function PatentsReportPage() {
     return '—'
   }
 
+  const [activePatentType, setActivePatentType] = useState<string>('all')
+
   const filteredPatents = patents.filter(p => {
     if (activeGrantType !== 'all') {
       if (getGrantType(p.inventors) !== activeGrantType) return false
@@ -101,6 +126,10 @@ export default function PatentsReportPage() {
     if (activeJurisdiction !== 'all') {
       const rowJur = p.jurisdiction || 'Unconfirmed'
       if (rowJur !== activeJurisdiction) return false
+    }
+    if (activePatentType !== 'all') {
+      const rowType = p.patent_type || 'Utility'
+      if (rowType !== activePatentType) return false
     }
     if (appNumberSearch) {
       if (!p.application_number?.toLowerCase().includes(appNumberSearch.toLowerCase())) {
@@ -121,14 +150,11 @@ export default function PatentsReportPage() {
       const eDateQuery = eDate ? `&endDate=${eDate}` : ''
       const res = await fetch(`/api/admin/reports/patents?year=${yearQuery}&dept=${deptQuery}&status=${statusQuery}${sDateQuery}${eDateQuery}&_t=${Date.now()}`, { headers: { Authorization: `Bearer ${tok}` } })
       if (res.ok) {
-        const { data, departments: deptList } = await res.json()
+        const { data, departments: deptList, years: yearList } = await res.json()
         setPatents(data || [])
         
         if (year === 'all' && dept === 'all') {
-          const dbYears = (data || []).map((g: any) => g.academic_year || g.year).filter(Boolean);
-          const uniqueYears = Array.from(new Set(dbYears)) as string[]
-          uniqueYears.sort((a, b) => b.localeCompare(a))
-          setPatYears(uniqueYears)
+          setPatYears(yearList || [])
           setDepartments(deptList || [])
         }
       } else {
@@ -368,6 +394,16 @@ export default function PatentsReportPage() {
                   <option key={j} value={j}>{j}</option>
                 ))}
               </select>
+              <select 
+                value={activePatentType} 
+                onChange={(e) => setActivePatentType(e.target.value)}
+                className="w-full md:w-auto bg-white border border-slate-300 text-slate-700 text-sm font-semibold rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="all">All Types</option>
+                <option value="Utility">Utility Patent</option>
+                <option value="Design">Design Patent</option>
+                <option value="Copyright">Copyright</option>
+              </select>
               <div className="flex items-center gap-2 bg-white border border-slate-300 rounded-lg px-3 py-1">
                 <input 
                   type="text" 
@@ -394,6 +430,7 @@ export default function PatentsReportPage() {
                   <th className="px-4 py-3 font-semibold border-r border-blue-800">S.No</th>
                   <th className="px-4 py-3 font-semibold border-r border-blue-800">Dept</th>
                   <th className="px-4 py-3 font-semibold border-r border-blue-800">App No.</th>
+                  <th className="px-4 py-3 font-semibold border-r border-blue-800">Type</th>
                   <th className="px-4 py-3 font-semibold border-r border-blue-800">Status</th>
                   <th className="px-4 py-3 font-semibold border-r border-blue-800 min-w-[150px]">Inventors</th>
                   <th className="px-4 py-3 font-semibold border-r border-blue-800 min-w-[200px]">Title</th>
@@ -407,7 +444,7 @@ export default function PatentsReportPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredPatents.length === 0 ? (
-                  <tr><td colSpan={12} className="px-4 py-8 text-center text-slate-500 font-medium">No patents found.</td></tr>
+                  <tr><td colSpan={13} className="px-4 py-8 text-center text-slate-500 font-medium">No patents found.</td></tr>
                 ) : filteredPatents.slice(0, visiblePatCount).map((p, idx) => (
                     <tr key={p.id} className="hover:bg-blue-50 transition-colors">
                       <td className="px-4 py-3 border-r border-slate-100 font-medium text-slate-500 text-center">{idx + 1}</td>
@@ -441,6 +478,26 @@ export default function PatentsReportPage() {
                             </select>
                           )}
                         </div>
+                      </td>
+                      {/* Patent Type inline dropdown */}
+                      <td className="px-4 py-3 border-r border-slate-100">
+                        {updatingId === p.id + '-type' ? (
+                          <Loader2 className="w-3 h-3 animate-spin text-slate-400" />
+                        ) : (
+                          <select
+                            value={p.patent_type || 'Utility'}
+                            onChange={(e) => handlePatentTypeChange(p.id, e.target.value)}
+                            className={`text-[9px] uppercase tracking-wider font-bold rounded px-1.5 py-0.5 outline-none cursor-pointer border ${
+                              p.patent_type === 'Design' ? 'bg-pink-100 text-pink-700 border-pink-200' :
+                              p.patent_type === 'Copyright' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                              'bg-indigo-100 text-indigo-700 border-indigo-200'
+                            }`}
+                          >
+                            <option value="Utility">Utility</option>
+                            <option value="Design">Design</option>
+                            <option value="Copyright">Copyright</option>
+                          </select>
+                        )}
                       </td>
                       <td className="px-4 py-3 border-r border-slate-100 text-slate-800 font-semibold">{p.status}</td>
                       <td className="px-4 py-3 border-r border-slate-100 text-slate-600 whitespace-normal min-w-[150px] text-xs">{p.inventors}</td>

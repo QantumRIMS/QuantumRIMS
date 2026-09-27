@@ -41,13 +41,13 @@ export async function GET(request: Request) {
       }
     }
 
-    // Get unique departments for the dropdown
-    const { data: allDeptsData } = await admin.from('legacy_consultancy').select('department')
-    let departments: string[] = []
-    if (allDeptsData) {
-      const depts = new Set(allDeptsData.map(d => d.department).filter(Boolean))
-      departments = Array.from(depts).sort()
-    }
+    // Get unique departments for the dropdown using RPC
+    const { data: allDeptsData } = await admin.rpc('get_distinct_column_values', { p_table_name: 'legacy_consultancy', p_column_name: 'department' })
+    const departments = allDeptsData ? allDeptsData.map((d: any) => d.val).sort() : []
+
+    // Get unique years for the dropdown using RPC
+    const { data: allYearsData } = await admin.rpc('get_distinct_column_values', { p_table_name: 'legacy_consultancy', p_column_name: 'academic_year' })
+    const years = allYearsData ? allYearsData.map((y: any) => y.val).sort().reverse() : []
 
     // Sort descending by academic year then project_date
     const result = allData.sort((a: any, b: any) => {
@@ -57,7 +57,9 @@ export async function GET(request: Request) {
       return db - da
     })
 
-    return NextResponse.json({ data: result, departments })
+    const totalAmount = result.reduce((acc, c) => acc + (Number(c.amount) || 0), 0)
+
+    return NextResponse.json({ data: result, departments, years, totalAmount })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

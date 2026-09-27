@@ -16,7 +16,7 @@
  */
 
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
-import { convertDocxToPdf } from '@/lib/fillDocxTemplate'
+
 
 export interface DocumentInput {
   label: string
@@ -207,8 +207,14 @@ export async function mergeDocumentsToPdf(
       const needsConversion = isOfficeMime(contentType) || isOfficeExtension(url)
 
       if (needsConversion) {
-        console.log(`[mergeDocumentsToPdf] Converting (mime: ${contentType}): ${label}`)
-        pdfBuffer = await convertDocxToPdf(rawBuffer)
+        console.log(`[mergeDocumentsToPdf] Skipping conversion for Office document: ${label}`)
+        const errLines = buildLines(displayLabel, measureFont, fontSize, maxWidth)
+        errLines.push(`[${label} is in Word/Office format and was not merged]`)
+        errLines.push(`[Please download it individually from the application detail page]`)
+        const errDivider = await makeDividerPage(errLines, true)
+        const [errPage] = await merged.copyPages(errDivider, [0])
+        merged.addPage(errPage)
+        continue
       } else {
         pdfBuffer = rawBuffer
       }

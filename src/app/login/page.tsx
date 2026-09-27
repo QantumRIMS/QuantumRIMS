@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { LogIn, Eye, EyeOff, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { checkAdminAllowlist } from './actions'
 
 import { LoginStatsPanel } from '@/components/LoginStatsPanel'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -35,13 +36,34 @@ export default function StaffLoginPage() {
     setError('')
     setSuccessMsg('')
 
-    const syntheticEmail = `${empId.trim().toLowerCase()}@staff.research-portal.local`
+    const inputValue = empId.trim().toLowerCase()
+    const isAdminAttempt = inputValue.includes('@')
 
-    const { error } = await supabase.auth.signInWithPassword({ email: syntheticEmail, password })
+    // If it's not an admin attempt, we append the synthetic domain for staff
+    const loginEmail = isAdminAttempt 
+      ? inputValue 
+      : `${inputValue}@staff.research-portal.local`
+
+    const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password })
 
     if (error) {
-      setError('Invalid Employee ID or password.')
+      setError('Invalid Employee ID/email or password.')
       setLoading(false)
+      return
+    }
+
+    if (isAdminAttempt) {
+      // Verify they are actually in the admin allowlist
+      const isAllowedAdmin = await checkAdminAllowlist(loginEmail)
+      if (!isAllowedAdmin) {
+        // Sign them back out immediately so they aren't stuck in a non-admin session
+        await supabase.auth.signOut()
+        setError('Invalid Employee ID/email or password.')
+        setLoading(false)
+        return
+      }
+      
+      router.push('/admin')
       return
     }
 
@@ -112,14 +134,10 @@ export default function StaffLoginPage() {
                 </button>
               </form>
 
-              <div className="pt-8 text-center border-t border-slate-100 dark:border-slate-700 space-y-3 mt-8">
+              <div className="pt-8 text-center border-t border-slate-100 dark:border-slate-700 mt-8">
                 <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
                   First time? You&apos;ll need to{' '}
                   <Link href="/signup" className="text-[#0A3D8F] dark:text-blue-400 font-bold hover:text-blue-700 dark:hover:text-blue-300 hover:underline transition-colors">Request access</Link>
-                </p>
-                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-                  Are you an Admin?{' '}
-                  <Link href="/admin/login" className="text-[#0A3D8F] dark:text-blue-400 font-bold hover:text-blue-700 dark:hover:text-blue-300 hover:underline transition-colors">Go to Admin Portal</Link>
                 </p>
               </div>
             </div>

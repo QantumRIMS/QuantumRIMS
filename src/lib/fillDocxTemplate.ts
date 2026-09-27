@@ -2,15 +2,15 @@ import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
 import fs from 'fs'
 import path from 'path'
-import { promisify } from 'util'
-// @ts-ignore
-import libre from 'libreoffice-convert'
 
-const convertAsync = promisify(libre.convert)
-
-export function fillTemplate(templatePath: string, data: Record<string, any>): Buffer {
-  // Read template
-  const content = fs.readFileSync(path.resolve(templatePath), 'binary')
+export async function fillTemplate(templateUrl: string, data: Record<string, any>): Promise<Buffer> {
+  // Fetch template from URL
+  const response = await fetch(templateUrl)
+  if (!response.ok) {
+    throw new Error(`Failed to fetch template from ${templateUrl}: ${response.statusText}`)
+  }
+  const arrayBuffer = await response.arrayBuffer()
+  const content = Buffer.from(arrayBuffer)
   const zip = new PizZip(content)
   
   if (data._isConsultancyForm) {
@@ -62,7 +62,4 @@ export function fillTemplate(templatePath: string, data: Record<string, any>): B
   return buf
 }
 
-export async function convertDocxToPdf(docxBuffer: Buffer): Promise<Buffer> {
-  const ext = '.pdf'
-  return await convertAsync(docxBuffer, ext, undefined)
-}
+

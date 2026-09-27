@@ -9,7 +9,7 @@ import { saveAs } from 'file-saver'
 import { PROJECT_DOCUMENT_CHECKLIST } from '@/lib/seedFundProjectDocs'
 import { uploadFile as cloudUpload } from '@/lib/uploadFile'
 
-function ProjectDocumentsSection({ application, onRefresh }: { application: any, onRefresh: () => void }) {
+function ProjectDocumentsSection({ application, onRefresh, dbTemplates }: { application: any, onRefresh: () => void, dbTemplates: Record<string, string> }) {
   const [files, setFiles] = useState<Record<string, { file: File | null; url: string | null; uploading: boolean }>>({})
   const [submitting, setSubmitting] = useState(false)
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
@@ -154,9 +154,21 @@ function ProjectDocumentsSection({ application, onRefresh }: { application: any,
             <div key={item.key} className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
               <div className="flex-1">
                 <p className="font-bold text-slate-800 text-sm mb-1">{item.label} <span className="text-red-500">*</span></p>
-                <a href={item.template} download className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1">
-                  <Download className="w-3 h-3" /> Download Template
-                </a>
+                {item.doc_key ? (
+                  dbTemplates[item.doc_key] ? (
+                    <a href={dbTemplates[item.doc_key]} download target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                      <Download className="w-3 h-3" /> Download Template
+                    </a>
+                  ) : (
+                    <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
+                      Template not available
+                    </span>
+                  )
+                ) : (
+                  <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
+                    <FileText className="w-3 h-3" /> Use Generated Form
+                  </span>
+                )}
               </div>
               <div className="shrink-0 w-full sm:w-auto flex flex-col items-center">
                 <div 
@@ -219,7 +231,7 @@ function ProjectDocumentsSection({ application, onRefresh }: { application: any,
   )
 }
 
-function PPTPresentationSection({ application, onRefresh }: { application: any, onRefresh: () => void }) {
+function PPTPresentationSection({ application, onRefresh, dbTemplates }: { application: any, onRefresh: () => void, dbTemplates: Record<string, string> }) {
   const [file, setFile] = useState<{ file: File | null; url: string | null; uploading: boolean }>({ file: null, url: null, uploading: false })
   const [submitting, setSubmitting] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -335,9 +347,15 @@ function PPTPresentationSection({ application, onRefresh }: { application: any, 
           <span className="w-6 h-6 rounded-full bg-fuchsia-100 text-fuchsia-700 flex items-center justify-center text-xs">4</span>
           Step 4: Presentation Submission
         </h3>
-        <a href="/templates/PPT%20Template%20for%20presentation%20-%20Seed%20money%20funded%20project%202025-2026.pptx" download className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1.5 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
-          <Download className="w-3 h-3" /> Download Template
-        </a>
+        {dbTemplates['ppt_template'] ? (
+          <a href={dbTemplates['ppt_template']} download target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1.5 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+            <Download className="w-3 h-3" /> Download Template
+          </a>
+        ) : (
+          <span className="text-xs font-bold text-slate-400 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 flex items-center gap-1.5">
+            Template not available
+          </span>
+        )}
       </div>
       
       <p className="text-sm text-slate-600 mb-4 font-medium">Fill in the template with your project details and upload the completed presentation below.</p>
@@ -419,7 +437,23 @@ export default function SeedFundPage() {
   const requisitionInputRef = useRef<HTMLInputElement>(null)
   const projectInputRef = useRef<HTMLInputElement>(null)
 
+  const [dbTemplates, setDbTemplates] = useState<Record<string, string>>({})
+
   useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const res = await fetch('/api/templates?module=seed_fund')
+        if (res.ok) {
+          const json = await res.json()
+          const map: Record<string, string> = {}
+          json.data?.forEach((t: any) => { map[t.doc_key] = t.file_url })
+          setDbTemplates(map)
+        }
+      } catch (err) {
+        console.error('Failed to fetch templates', err)
+      }
+    }
+    fetchTemplates()
     fetchApplications()
   }, [])
 
@@ -767,10 +801,13 @@ export default function SeedFundPage() {
                   Initial Request / Screening Details
                 </h2>
                 {isStep1Valid && (
-                  <button type="button" onClick={handleDownloadScreening} disabled={isGeneratingScreening} className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1.5 disabled:opacity-50">
-                    {isGeneratingScreening ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} 
-                    {isGeneratingScreening ? 'Generating...' : 'Download Screening Form'}
-                  </button>
+                  <div>
+                    <button type="button" onClick={handleDownloadScreening} disabled={isGeneratingScreening} className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1.5 disabled:opacity-50">
+                      {isGeneratingScreening ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} 
+                      {isGeneratingScreening ? 'Generating...' : 'Download Form (.docx)'}
+                    </button>
+                    <p className="text-xs text-slate-500 font-medium mt-1">Download the form (.docx), open it in Word/Google Docs to print and sign (or sign electronically and export to PDF), and upload it back below.</p>
+                  </div>
                 )}
               </div>
               
@@ -841,10 +878,13 @@ export default function SeedFundPage() {
                   Seed Money Requisition
                 </h2>
                 {isStep2Valid && (
-                  <button type="button" onClick={handleDownloadRequisition} disabled={isGeneratingRequisition} className="text-sm font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 disabled:opacity-50">
-                    {isGeneratingRequisition ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                    {isGeneratingRequisition ? 'Generating...' : 'Download Requisition Form'}
-                  </button>
+                  <div>
+                    <button type="button" onClick={handleDownloadRequisition} disabled={isGeneratingRequisition} className="text-sm font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 disabled:opacity-50">
+                      {isGeneratingRequisition ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                      {isGeneratingRequisition ? 'Generating...' : 'Download Form (.docx)'}
+                    </button>
+                    <p className="text-xs text-slate-500 font-medium mt-1">Download the form (.docx), open it in Word/Google Docs to print and sign (or sign electronically and export to PDF), and upload it back below.</p>
+                  </div>
                 )}
               </div>
               
@@ -909,7 +949,11 @@ export default function SeedFundPage() {
                   <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 text-white flex items-center justify-center text-sm shadow-md">3</span> 
                   Project Document
                 </h2>
-                <a href="/templates/seed-fund-proposal-template.pdf" download className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1.5"><FileText className="w-4 h-4" /> Download Template</a>
+                {dbTemplates['proposal_form'] ? (
+                  <a href={dbTemplates['proposal_form']} download target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1.5"><FileText className="w-4 h-4" /> Download Template</a>
+                ) : (
+                  <span className="text-sm font-bold text-slate-400 flex items-center gap-1.5">Template not available</span>
+                )}
               </div>
               
               <div className="bg-blue-50/50 rounded-2xl p-6 border border-blue-100">
@@ -1099,11 +1143,13 @@ export default function SeedFundPage() {
                         <PPTPresentationSection 
                           application={app} 
                           onRefresh={fetchApplications}
+                          dbTemplates={dbTemplates}
                         />
                         {app.ppt_submission?.status === 'approved' && (
                           <ProjectDocumentsSection
                             application={app}
                             onRefresh={fetchApplications}
+                            dbTemplates={dbTemplates}
                           />
                         )}
                       </div>

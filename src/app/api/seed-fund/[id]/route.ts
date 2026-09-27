@@ -5,7 +5,8 @@ import { verifyToken } from '@/lib/verifyAuth'
 
 export const dynamic = 'force-dynamic'
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const admin = createAdminClient()
 
   const authHeader = request.headers.get('authorization')

@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 
-export async function GET(
-  _request: Request,
-  { params }: { params: { emp_id: string } }
-) {
+export async function GET(_request: Request, props: { params: Promise<{ emp_id: string }> }) {
+  const params = await props.params;
   const empId = params.emp_id?.trim()
   if (!empId) {
     return NextResponse.json({ error: 'Employee ID is required' }, { status: 400 })

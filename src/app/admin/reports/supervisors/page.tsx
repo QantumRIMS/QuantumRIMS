@@ -34,15 +34,11 @@ export default function SupervisorsReportPage() {
       const eDateQuery = eDate ? `&endDate=${eDate}` : ''
       const res = await fetch(`/api/admin/reports/supervisors?year=${yearQuery}&dept=${deptQuery}${sDateQuery}${eDateQuery}&_t=${Date.now()}`, { headers: { Authorization: `Bearer ${tok}` } })
       if (res.ok) {
-        const { data, departments: deptList } = await res.json()
+        const { data, departments: deptList, years: yearList } = await res.json()
         setSupervisors(data || [])
         
         if (year === 'all' && dept === 'all') {
-          const uniqueYears = Array.from(
-            new Set((data || []).map((g: any) => String(g.academic_year || g.year || '')).filter(Boolean))
-          ) as string[]
-          uniqueYears.sort((a, b) => b.localeCompare(a))
-          setSupYears(uniqueYears)
+          setSupYears(yearList || [])
           setDepartments(deptList || [])
         }
       } else {

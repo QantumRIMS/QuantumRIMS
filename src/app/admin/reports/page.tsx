@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  BarChart3, FileText, IndianRupee, FlaskConical, Loader2, GraduationCap, Award, Users, Briefcase, ExternalLink, FolderKanban
+  BarChart3, FileText, IndianRupee, FlaskConical, Loader2, GraduationCap, Award, Users, Briefcase, ExternalLink, FolderKanban, Target
 } from 'lucide-react'
 import { useAdminAuth } from '@/context/AdminAuthContext'
 
@@ -12,13 +12,22 @@ export default function ReportsPage() {
   const { token, loading: authLoading } = useAdminAuth()
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<any>(null)
+  const [targetSummary, setTargetSummary] = useState<any>(null)
 
   const fetchStats = useCallback(async (tok: string) => {
     try {
-      const res = await fetch('/api/admin/reports/stats', { headers: { Authorization: `Bearer ${tok}` } })
+      const [res, targetRes] = await Promise.all([
+        fetch('/api/admin/reports/stats', { headers: { Authorization: `Bearer ${tok}` } }),
+        fetch('/api/admin/reports/publication-targets/summary?academic_year=2026', { headers: { Authorization: `Bearer ${tok}` } })
+      ])
+      
       if (res.ok) {
         const data = await res.json()
         setStats(data)
+      }
+      if (targetRes.ok) {
+        const targetData = await targetRes.json()
+        setTargetSummary(targetData)
       }
     } catch (err) {
       console.error(err)
@@ -73,6 +82,7 @@ export default function ReportsPage() {
               { title: 'Seed Fund Grants', stat: formatCurrency(liv.seed_fund_grants_total), label: 'SANCTIONED', Icon: FlaskConical, link: '/admin/reports/seed-fund-grants' },
               { title: 'Consultancy Projects', stat: formatCurrency(liv.consultancy_project_total), label: 'EXTERNAL', Icon: Briefcase, link: '/admin/reports/consultancy' },
               { title: 'Project Grants', stat: formatCurrency(liv.project_grants_total), label: 'SANCTIONED', Icon: FolderKanban, link: '/admin/reports/grants' },
+              { title: 'Target Completion (2026)', stat: `${targetSummary?.percent_met ?? 0}%`, label: `${targetSummary?.count_met ?? 0}/${targetSummary?.total_with_target ?? 0} MET TARGET`, Icon: Target, link: '/admin/reports/publication-targets' },
             ].map((card, i) => {
               const Icon = card.Icon
               const wrapperClasses = `

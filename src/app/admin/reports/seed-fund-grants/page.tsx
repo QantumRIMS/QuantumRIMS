@@ -17,6 +17,7 @@ export default function SeedFundGrantsReportPage() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [importing, setImporting] = useState(false)
+  const [totalAmount, setTotalAmount] = useState(0)
   const [visibleCount, setVisibleCount] = useState(30)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -56,15 +57,12 @@ export default function SeedFundGrantsReportPage() {
         { headers: { Authorization: `Bearer ${tok}` } }
       )
       if (res.ok) {
-        const { data, departments: deptList } = await res.json()
+        const { data, departments: deptList, years: yearList, totalAmount: apiTotal } = await res.json()
         const list = data || []
         setGrants(list)
+        setTotalAmount(apiTotal || 0)
         if (year === 'all' && dept === 'all') {
-          const uniqueYears = Array.from(
-            new Set((list || []).map((g: any) => String(g.academic_year || g.year || '')).filter(Boolean))
-          ) as string[]
-          uniqueYears.sort((a, b) => b.localeCompare(a))
-          setGrantYears(uniqueYears)
+          setGrantYears(yearList || [])
           setDepartments(deptList || [])
         }
       } else {
@@ -151,7 +149,6 @@ export default function SeedFundGrantsReportPage() {
     )
   })
 
-  // Page total matches exactly what the Reports Overview card shows (legacy portion)
   const pageTotal = filteredGrants.reduce((acc, g) => acc + (Number(g.amount_sanctioned) || 0), 0)
 
   const formatCurrency = (val: number) => {

@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { verifyToken, extractToken, requireAdmin } from '@/lib/verifyAuth'
 import { createAdminClient } from '@/lib/supabase'
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const token = extractToken(req)
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -43,7 +44,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const token = extractToken(req)
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

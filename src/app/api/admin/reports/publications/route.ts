@@ -148,17 +148,30 @@ export async function GET(request: Request) {
     })
 
     // ── 5. Compute filter option lists from combined set ───────────────────────
-    const departments = [
-      ...new Set(combined.map(p => (p.department || '').toUpperCase().trim()).filter(Boolean))
-    ].sort()
-    const months = [...new Set(combined.map(p => p.publication_month).filter(Boolean))]
+    const { data: legacyDepts } = await admin.rpc('get_distinct_column_values', { p_table_name: 'legacy_publications', p_column_name: 'department' })
+    const { data: legacyYears } = await admin.rpc('get_distinct_column_values', { p_table_name: 'legacy_publications', p_column_name: 'year' })
+    const { data: legacyMonths } = await admin.rpc('get_distinct_column_values', { p_table_name: 'legacy_publications', p_column_name: 'publication_month' })
+
+    const deptSet = new Set<string>((legacyDepts || []).map((d: any) => (d.val || '').toUpperCase().trim()).filter(Boolean))
+    const yearSet = new Set<string>((legacyYears || []).map((y: any) => String(y.val)).filter(Boolean))
+    const monthSet = new Set<string>((legacyMonths || []).map((m: any) => m.val).filter(Boolean))
+
+    deduplicatedSubs.forEach(s => {
+      if (s.department) deptSet.add(s.department.toUpperCase().trim())
+      if (s.year) yearSet.add(String(s.year))
+      if (s.publication_month) monthSet.add(s.publication_month)
+    })
+
+    const departments = Array.from(deptSet).sort()
+    const years = Array.from(yearSet).sort().reverse()
+    const months = Array.from(monthSet).sort()
 
     console.log(
       `Publications API: legacy=${legacyRaw.length}, approved_subs=${approvedSubs.length}, ` +
       `after_dedup=${deduplicatedSubs.length}, combined=${combined.length}`
     )
 
-    return NextResponse.json({ data: combined, departments, months })
+    return NextResponse.json({ data: combined, departments, years, months })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

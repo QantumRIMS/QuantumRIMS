@@ -23,6 +23,7 @@ export default function IncentivesReportPage() {
   const [loading, setLoading] = useState(true)
   const [importing, setImporting] = useState(false)
   const [importMode, setImportMode] = useState<'append' | 'replace'>('append')
+  const [totalAmount, setTotalAmount] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -61,15 +62,12 @@ export default function IncentivesReportPage() {
       const eDateQuery = eDate ? `&endDate=${eDate}` : ''
       const res = await fetch(`/api/admin/reports/incentives?year=${yearQuery}&dept=${deptQuery}${sDateQuery}${eDateQuery}&_t=${Date.now()}`, { headers: { Authorization: `Bearer ${tok}` } })
       if (res.ok) {
-        const { data, departments: deptList } = await res.json()
+        const { data, departments: deptList, years: yearList, totalAmount: apiTotal } = await res.json()
         setIncentives(data || [])
+        setTotalAmount(apiTotal || 0)
         
         if (year === 'all' && dept === 'all') {
-          const uniqueYears = Array.from(
-            new Set((data || []).map((g: any) => String(g.incentive_year || g.year || '')).filter(Boolean))
-          ) as string[]
-          uniqueYears.sort((a, b) => b.localeCompare(a))
-          setIncYears(uniqueYears)
+          setIncYears(yearList || [])
           setDepartments(deptList || [])
         }
       } else {
@@ -194,7 +192,7 @@ export default function IncentivesReportPage() {
     }
   }
 
-  const totalAmount = incentives.reduce((acc, g) => acc + (Number(g.received_amount) || 0), 0)
+  // totalAmount is now sourced from API via component state
 
   // Derive pub types from real data (no hardcoded list)
   const pubTypes = Array.from(

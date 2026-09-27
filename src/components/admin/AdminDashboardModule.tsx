@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation'
 import { useAdminAuth } from '@/context/AdminAuthContext'
 import type { Submission } from '@/lib/types'
 import {
-  Download, Loader2, Search, Filter, CheckCircle, CheckCircle2, AlertCircle, Check, X, MessageSquareX, Edit3, IndianRupee, FileText, ChevronDown, ChevronUp, Star, ChevronRight, FlaskConical, Briefcase, BarChart3, Megaphone, ExternalLink, Globe, Link as LinkIcon, FolderOpen, FolderKanban, GraduationCap
+  Download, Loader2, Search, Filter, CheckCircle, CheckCircle2, AlertCircle, Check, X, MessageSquareX, Edit3, IndianRupee, FileText, ChevronDown, ChevronUp, Star, ChevronRight, FlaskConical, Briefcase, BarChart3, Megaphone, ExternalLink, Globe, Link as LinkIcon, FolderOpen, FolderKanban, GraduationCap, Settings
 } from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { PROJECT_DOCUMENT_CHECKLIST } from '@/lib/seedFundProjectDocs'
 
 const LIMIT = 20
@@ -628,6 +629,11 @@ export default function AdminDashboardModule({ module }: { module: ModuleTab }) 
               </div>
               
               <div className="flex items-center gap-2">
+                {(activeModule === 'applications' || activeModule === 'consultancy' || activeModule === 'projectGrants') && (
+                  <Link href={`/admin/${activeModule === 'applications' ? 'seed-fund' : activeModule === 'projectGrants' ? 'project-grants' : 'consultancy'}/templates`} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-500/20 hover:bg-indigo-500/40 transition-colors shadow-sm text-white border border-indigo-400/30">
+                    <Settings className="w-4 h-4" /> Edit Templates
+                  </Link>
+                )}
                 {activeModule === 'submissions' && activeTab === 'approved' && (
                   <button onClick={handleExport} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white/10 hover:bg-white/20 transition-colors shadow-sm text-white border border-white/20">
                     <Download className="w-4 h-4" /> Export

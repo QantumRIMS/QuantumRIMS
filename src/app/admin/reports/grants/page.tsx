@@ -17,6 +17,7 @@ export default function GrantsReportPage() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [importing, setImporting] = useState(false)
+  const [totalAmount, setTotalAmount] = useState(0)
   const [visibleCount, setVisibleCount] = useState(30)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -56,18 +57,13 @@ export default function GrantsReportPage() {
         { headers: { Authorization: `Bearer ${tok}` } }
       )
       if (res.ok) {
-        const { data } = await res.json()
+        const { data, departments: deptList, years: yearList, totalAmount: apiTotal } = await res.json()
         const list = data || []
         setGrants(list)
+        setTotalAmount(apiTotal || 0)
         if (year === 'all' && dept === 'all') {
-          const uniqueYears = Array.from(
-            new Set((list || []).map((g: any) => String(g.academic_year || g.year || '')).filter(Boolean))
-          ) as string[]
-          uniqueYears.sort((a, b) => b.localeCompare(a))
-          setGrantYears(uniqueYears)
-          const uniqueDepts = Array.from(new Set(list.map((g: any) => g.department).filter(Boolean))) as string[]
-          uniqueDepts.sort()
-          setDepartments(uniqueDepts)
+          setGrantYears(yearList || [])
+          setDepartments(deptList || [])
         }
       }
     } catch (err) { console.error(err) }
@@ -148,8 +144,6 @@ export default function GrantsReportPage() {
       (g.department || '').toLowerCase().includes(q)
     )
   })
-
-  const totalAmount = filteredGrants.reduce((acc, g) => acc + (Number(g.grant_amount) || 0), 0)
 
   const formatCurrency = (val: number) => {
     if (!val) return '₹0'

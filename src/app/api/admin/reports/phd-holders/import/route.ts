@@ -21,6 +21,8 @@ export async function POST(request: Request) {
 
     const formData = await request.formData()
     const file = formData.get('file') as File | null
+    const year = formData.get('year') as string || '2026'
+
     if (!file) return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
     if (!file.name.match(/\.(xlsx|xls)$/i)) return NextResponse.json({ error: 'Only Excel files are allowed' }, { status: 400 })
     if (file.size > 10 * 1024 * 1024) return NextResponse.json({ error: 'File size must be less than 10MB' }, { status: 400 })
@@ -36,13 +38,17 @@ export async function POST(request: Request) {
     const newRows = rows.map(r => ({
       s_no: parseInt(r.s_no, 10) || null,
       dept: (r.dept || '').trim(),
-      name: (r.name || '').trim()
+      name: (r.name || '').trim(),
+      academic_year: year
     })).filter(r => r.name) // name is required
 
     if (newRows.length === 0) return NextResponse.json({ error: 'No valid names found in the spreadsheet' }, { status: 400 })
 
-    // Truncate and replace
-    const { error: deleteError } = await admin.from('legacy_phd_holders').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    // Delete existing records ONLY for the selected year
+    const { error: deleteError } = await admin.from('legacy_phd_holders')
+      .delete()
+      .eq('academic_year', year)
+      
     if (deleteError) throw deleteError
 
     const { error: insertError } = await admin.from('legacy_phd_holders').insert(newRows)

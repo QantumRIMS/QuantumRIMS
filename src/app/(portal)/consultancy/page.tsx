@@ -9,16 +9,16 @@ import { saveAs } from 'file-saver'
 import { uploadFile as cloudUpload } from '@/lib/uploadFile'
 
 const DOCUMENT_CHECKLIST = [
-  { key: 'proposal_form_url', label: 'Signed Proposal Form', template: null },
-  { key: 'mou_url', label: 'Memorandum of Understanding', template: '/templates/consultancy/CFRD_CON_MOU_02 - MEMORANDUM OF UNDERSTANDING FOR CONSULTANCY SERVICES.docx' },
-  { key: 'work_monitoring_url', label: 'Work Monitoring Form', template: '/templates/consultancy/CFRD_CON_WM_03 - CONSULTANCY WORK MONITORING FORM.docx' },
-  { key: 'payment_receipt_url', label: 'Payment Receipt Form', template: '/templates/consultancy/CFRD_CON_PR_04 - CONSULTANCY PAYMENT RECEIPT FORM.docx' },
-  { key: 'work_expense_report_url', label: 'Work Expense Report', template: '/templates/consultancy/CFRD_CON_WE_05 - CONSULTANCY WORK EXPENSE REPORT.docx' },
-  { key: 'expenditure_documentation_checklist_url', label: 'Expenditure Documentation Checklist', template: '/templates/consultancy/CFRD_CON_ED_06 - CONSULTANCY EXPENDITURE DOCUMENTATION CHECKLIST.docx' },
-  { key: 'audit_statement_url', label: 'Audit Statement', template: '/templates/consultancy/CFRD_CON_AS_07 - CONSULTANCY AUDIT STATEMENT.docx' },
-  { key: 'agreement_closure_url', label: 'Agreement Closure Form', template: '/templates/consultancy/CFRD_CON_ACF_08 - CONSULTANCY AGREEMENT CLOSURE FORM.docx' },
-  { key: 'revenue_sharing_url', label: 'Revenue Sharing Form', template: '/templates/consultancy/CFRD_CON_RS_09 - CONSULTANCY REVENUE SHARING FORM.docx' },
-  { key: 'closer_checklist_url', label: 'Closer Checklist', template: '/templates/consultancy/CFRD_CON_RS_10 - CONSULTANCY Closer Checklist Ver 2.0.docx' },
+  { key: 'proposal_form_url', label: 'Signed Proposal Form', doc_key: null },
+  { key: 'mou_url', label: 'Memorandum of Understanding', doc_key: 'mou' },
+  { key: 'work_monitoring_url', label: 'Work Monitoring Form', doc_key: 'work_monitoring' },
+  { key: 'payment_receipt_url', label: 'Payment Receipt Form', doc_key: 'payment_receipt' },
+  { key: 'work_expense_report_url', label: 'Work Expense Report', doc_key: 'work_expense' },
+  { key: 'expenditure_documentation_checklist_url', label: 'Expenditure Documentation Checklist', doc_key: 'expenditure_documentation' },
+  { key: 'audit_statement_url', label: 'Audit Statement', doc_key: 'audit_statement' },
+  { key: 'agreement_closure_url', label: 'Agreement Closure Form', doc_key: 'agreement_closure' },
+  { key: 'revenue_sharing_url', label: 'Revenue Sharing Form', doc_key: 'revenue_sharing' },
+  { key: 'closer_checklist_url', label: 'Closer Checklist', doc_key: 'closer_checklist' },
 ]
 
 export default function ConsultancyPage() {
@@ -39,6 +39,25 @@ export default function ConsultancyPage() {
   const [files, setFiles] = useState<Record<string, { file: File | null; url: string | null; uploading: boolean }>>({})
   const hasFileError = Object.values(files).some((f: any) => f?.error)
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  
+  const [dbTemplates, setDbTemplates] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const res = await fetch('/api/templates?module=consultancy')
+        if (res.ok) {
+          const json = await res.json()
+          const map: Record<string, string> = {}
+          json.data?.forEach((t: any) => { map[t.doc_key] = t.file_url })
+          setDbTemplates(map)
+        }
+      } catch (err) {
+        console.error('Failed to fetch templates', err)
+      }
+    }
+    fetchTemplates()
+  }, [])
 
   useEffect(() => {
     if (editId) {
@@ -479,10 +498,10 @@ export default function ConsultancyPage() {
 
               <div className="mt-8 pt-6 border-t border-slate-100 text-center">
                 <button type="button" onClick={handleDownloadProposal} disabled={isGeneratingProposal} className="inline-flex items-center justify-center gap-2 py-3 px-8 rounded-xl bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold transition-all duration-200 shadow-sm disabled:opacity-50">
-                  {isGeneratingProposal ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileText className="w-5 h-5" />} 
-                  {isGeneratingProposal ? 'Generating...' : 'Download Proposal Form'}
+                  {isGeneratingProposal ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileText className="w-5 h-5" />}
+                  {isGeneratingProposal ? 'Generating...' : 'Download Form (.docx)'}
                 </button>
-                <p className="text-xs text-slate-500 font-medium mt-3">Download the form, sign it, and upload it back below along with the other required documents.</p>
+                <p className="text-xs text-slate-500 font-medium mt-3">Download the form (.docx), open it in Word/Google Docs to print and sign (or sign electronically and export to PDF), and upload it back below along with the other required documents.</p>
               </div>
             </div>
 
@@ -504,10 +523,16 @@ export default function ConsultancyPage() {
                     <div key={item.key} className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between shadow-sm">
                       <div className="flex-1">
                         <p className="font-bold text-slate-800 text-sm mb-1">{item.label} <span className="text-red-500">*</span></p>
-                        {item.template ? (
-                          <a href={item.template} download className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1">
-                            <Download className="w-3 h-3" /> Download Template
-                          </a>
+                        {item.doc_key ? (
+                          dbTemplates[item.doc_key] ? (
+                            <a href={dbTemplates[item.doc_key]} download target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                              <Download className="w-3 h-3" /> Download Template
+                            </a>
+                          ) : (
+                            <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
+                              Template not available
+                            </span>
+                          )
                         ) : (
                           <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
                             <FileText className="w-3 h-3" /> Use Generated Form

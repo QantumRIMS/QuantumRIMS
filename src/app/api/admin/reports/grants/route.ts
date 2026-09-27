@@ -100,7 +100,24 @@ export async function GET(request: Request) {
       return 0
     })
 
-    return NextResponse.json({ data: combined })
+    // Fetch distinct values via RPC
+    const { data: legacyDepts } = await admin.rpc('get_distinct_column_values', { p_table_name: 'research_grants', p_column_name: 'department' })
+    const { data: legacyYears } = await admin.rpc('get_distinct_column_values', { p_table_name: 'research_grants', p_column_name: 'academic_year' })
+    
+    const deptSet = new Set((legacyDepts || []).map((d: any) => d.val).filter(Boolean))
+    const yearSet = new Set((legacyYears || []).map((y: any) => y.val).filter(Boolean))
+    
+    // Add live derived values
+    liveMapped.forEach(r => {
+      if (r.department) deptSet.add(r.department)
+      if (r.academic_year) yearSet.add(r.academic_year)
+    })
+
+    const departments = Array.from(deptSet).sort()
+    const years = Array.from(yearSet).sort().reverse()
+    const totalAmount = combined.reduce((acc, c) => acc + (Number(c.grant_amount) || 0), 0)
+
+    return NextResponse.json({ data: combined, departments, years, totalAmount })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

@@ -15,6 +15,8 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url)
   const dept = searchParams.get('dept')
+  const year = searchParams.get('year') || '2026'
+  const phdOnly = searchParams.get('phdOnly') === 'true'
 
   try {
     let allRawData: any[] = []
@@ -23,10 +25,17 @@ export async function GET(request: Request) {
     const pageSize = 1000
 
     while (hasMore) {
-      let query = admin.from('legacy_phd_holders').select('*').range(page * pageSize, (page + 1) * pageSize - 1)
+      let query = admin.from('legacy_phd_holders')
+        .select('*')
+        .eq('academic_year', year)
+        .range(page * pageSize, (page + 1) * pageSize - 1)
       
       if (dept && dept !== 'all') {
         query = query.ilike('dept', dept)
+      }
+
+      if (phdOnly) {
+        query = query.eq('is_phd', true)
       }
 
       const { data: pageData, error } = await query
@@ -82,7 +91,7 @@ export async function GET(request: Request) {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="PhD_Holders_Export_${new Date().toISOString().split('T')[0]}.xlsx"`
+        'Content-Disposition': `attachment; filename="PhD_Holders_Export_${year}_${new Date().toISOString().split('T')[0]}.xlsx"`
       }
     })
   } catch (error: any) {

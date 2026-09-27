@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useFaculty } from '@/context/FacultyContext'
-import { User, FileText, Wallet, FlaskConical, TrendingUp, GraduationCap, CheckCircle2, AlertCircle, Loader2, Edit3, X } from 'lucide-react'
+import { User, FileText, Wallet, FlaskConical, TrendingUp, GraduationCap, CheckCircle2, AlertCircle, Loader2, Edit3, X, Target, Trophy } from 'lucide-react'
 import Link from 'next/link'
 
 const DEPARTMENTS = [
@@ -38,6 +38,8 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', designation: '', dept: '', type: '' })
   const [submittingProfile, setSubmittingProfile] = useState(false)
+  const [targetData, setTargetData] = useState<any>(null)
+  const [targetLoading, setTargetLoading] = useState(true)
 
   useEffect(() => {
     async function fetchStats() {
@@ -84,6 +86,15 @@ export default function ProfilePage() {
           .maybeSingle()
         
         if (reqData) setProfileReq(reqData)
+
+        // Fetch publication target (using cookie auth automatically)
+        fetch('/api/profile/publication-target?academic_year=2026')
+          .then(res => res.json())
+          .then(data => {
+            if (!data.error) setTargetData(data)
+            setTargetLoading(false)
+          })
+          .catch(() => setTargetLoading(false))
 
       } catch (err) {
         console.error('Failed to fetch dashboard stats', err)
@@ -292,6 +303,55 @@ export default function ProfilePage() {
       )}
 
       <div className="relative z-20 w-full mx-auto px-4 sm:px-6 pt-10">
+        
+        {/* Target Banner */}
+        {!targetLoading && targetData && !targetData.no_target && (
+          <div className="mb-8 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden animate-slide-up">
+            <div className="px-8 py-6 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                  <Target className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="font-black text-slate-800 text-lg">Publication Target ({targetData.target.academic_year})</h2>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Track your annual research goals</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {targetData.met_target ? (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-full font-bold text-sm">
+                    <Trophy className="w-4 h-4" /> Target Achieved!
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-800 rounded-full font-bold text-sm">
+                    <TrendingUp className="w-4 h-4" /> In Progress
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="p-8 grid grid-cols-1 md:grid-cols-4 gap-6">
+              {[
+                { label: 'SCI / SCIE', t: targetData.target.sci_target, a: targetData.achievement.sci_achieved },
+                { label: 'Scopus/WoS Journals', t: targetData.target.scopus_journal_target, a: targetData.achievement.scopus_journal_achieved },
+                { label: 'Scopus/WoS Conference', t: targetData.target.scopus_conference_target, a: targetData.achievement.scopus_conference_achieved },
+                { label: 'Total Target', t: targetData.target.total_target, a: targetData.achievement.total_achieved, isTotal: true },
+              ].map((m, i) => (
+                <div key={i} className={`p-4 rounded-2xl ${m.isTotal ? 'bg-indigo-50 border border-indigo-100' : 'bg-slate-50 border border-slate-100'}`}>
+                  <div className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">{m.label}</div>
+                  <div className="flex items-end gap-2">
+                    <span className={`text-4xl font-black ${m.a >= m.t && m.t > 0 ? 'text-green-600' : 'text-slate-800'}`}>
+                      {m.a}
+                    </span>
+                    <span className="text-xl text-slate-400 font-medium mb-1">/ {m.t}</span>
+                  </div>
+                  {m.a >= m.t && m.t > 0 && <div className="text-xs font-bold text-green-600 mt-2">Met Target</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           {modules.map((mod, i) => {
             const Icon = mod.icon

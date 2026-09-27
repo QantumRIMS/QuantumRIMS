@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Loader2, ArrowLeft, Check, X, FileText, FlaskConical, IndianRupee, MapPin, Calendar, Users, Building, Target, BookOpen, Link as LinkIcon, Download, Star } from 'lucide-react'
 
-export default function SeedFundApplicationDetail({ params }: { params: { id: string } }) {
+export default function SeedFundApplicationDetail(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params);
   const router = useRouter()
 
-  
+
   const [app, setApp] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
@@ -22,7 +23,7 @@ export default function SeedFundApplicationDetail({ params }: { params: { id: st
 
   const fetchApplication = async () => {
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return router.push('/admin/login')
+    if (!session) return router.push('/login')
 
     try {
       const res = await fetch(`/api/admin/seed-fund/${params.id}`, {

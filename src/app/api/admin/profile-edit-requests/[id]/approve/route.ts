@@ -2,10 +2,8 @@ import { NextResponse } from 'next/server'
 import { verifyToken, extractToken } from '@/lib/verifyAuth'
 import { createAdminClient } from '@/lib/supabase'
 
-export async function POST(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const token = extractToken(request)
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

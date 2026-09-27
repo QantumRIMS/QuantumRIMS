@@ -21,6 +21,7 @@ export default function ConsultancyReportPage() {
   const [loading, setLoading] = useState(true)
   const [importing, setImporting] = useState(false)
   const [importMode, setImportMode] = useState<'append' | 'replace'>('append')
+  const [totalAmount, setTotalAmount] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleDelete = async (id: string, title: string, facultyName: string) => {
@@ -61,15 +62,12 @@ export default function ConsultancyReportPage() {
         { headers: { Authorization: `Bearer ${tok}` } }
       )
       if (res.ok) {
-        const { data, departments: deptList } = await res.json()
+        const { data, departments: deptList, years: yearList, totalAmount: apiTotal } = await res.json()
         setConsultancies(data || [])
+        setTotalAmount(apiTotal || 0)
         // Populate filters if this is the initial 'all' fetch
         if (year === 'all' && dept === 'all') {
-          const uniqueYears = Array.from(
-            new Set((data || []).map((c: any) => String(c.academic_year || c.year || '')).filter(Boolean))
-          ) as string[]
-          uniqueYears.sort((a, b) => b.localeCompare(a))
-          setYears(uniqueYears)
+          setYears(yearList || [])
           setDepartments(deptList || [])
         }
       } else {
@@ -186,8 +184,6 @@ export default function ConsultancyReportPage() {
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
-
-  const totalAmount = consultancies.reduce((acc, c) => acc + (Number(c.amount) || 0), 0)
 
   const formatCurrency = (val: number) => {
     if (!val) return '₹0'
