@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Download, ExternalLink, Upload, Loader2, FileText, Search, CheckCircle, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, ExternalLink, Upload, Loader2, FileText, Search, CheckCircle, Trash2, Pencil, X } from 'lucide-react'
 import { useAdminAuth } from '@/context/AdminAuthContext'
 
 export default function PublicationsReportPage() {
@@ -24,6 +24,8 @@ export default function PublicationsReportPage() {
   const [loading, setLoading] = useState(true)
   const [importing, setImporting] = useState(false)
   const [importMode, setImportMode] = useState<'append' | 'replace'>('append')
+  const [editPub, setEditPub] = useState<any>(null)
+  const [editSaving, setEditSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchPublications = useCallback(async (year: string, dept: string, month: string, duplicate: string, sDate: string, eDate: string, tok: string) => {
@@ -187,6 +189,59 @@ export default function PublicationsReportPage() {
     }
   }
 
+  const handleSaveEdit = async () => {
+    if (!editPub || !token) return
+    setEditSaving(true)
+    try {
+      const source = editPub._source || 'legacy'
+      const payload = source === 'live'
+        ? {
+            authors: editPub.authors,
+            title: editPub.title,
+            source_title: editPub.source_title,
+            volume: editPub.volume,
+            issue: editPub.issue,
+            year: editPub.year ? parseInt(editPub.year) : null,
+            doi: editPub.doi,
+            department: editPub.department,
+            faculty_name: editPub.faculty_name,
+            doc_type_scopus: editPub.document_type_scopus,
+            doc_type_report: editPub.document_type_report,
+          }
+        : {
+            authors: editPub.authors,
+            title: editPub.title,
+            source_title: editPub.source_title,
+            volume: editPub.volume,
+            issue: editPub.issue,
+            year: editPub.year ? parseInt(editPub.year) : null,
+            doi: editPub.doi,
+            department: editPub.department,
+            faculty_name: editPub.faculty_name,
+            document_type_scopus: editPub.document_type_scopus,
+            document_type_report: editPub.document_type_report,
+            emp_id: editPub.emp_id,
+          }
+
+      const res = await fetch(`/api/admin/reports/publications/${editPub.id}?source=${source}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      })
+      if (res.ok) {
+        setPublications(prev => prev.map(p => p.id === editPub.id ? { ...p, ...editPub } : p))
+        setEditPub(null)
+      } else {
+        const err = await res.json()
+        alert(err.error || 'Failed to save')
+      }
+    } catch (e: any) {
+      alert('Error saving: ' + e.message)
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
   if (loading) return <div className="p-8 text-center"><div className="w-8 h-8 mx-auto border-4 border-blue-600 border-t-transparent rounded-full animate-spin" /></div>
 
   const filteredPublications = publications.filter(p => {
@@ -332,6 +387,7 @@ export default function PublicationsReportPage() {
                   <th className="px-4 py-3 font-semibold border-r border-blue-800">Doc Type (Report)</th>
                   <th className="px-4 py-3 font-semibold border-r border-blue-800">Dept</th>
                   <th className="px-4 py-3 font-semibold border-r border-blue-800">Faculty Name</th>
+                  <th className="px-4 py-3 font-semibold border-r border-blue-800">Emp ID</th>
                   <th className="px-4 py-3 font-semibold text-center">Actions</th>
                 </tr>
               </thead>
@@ -390,14 +446,24 @@ export default function PublicationsReportPage() {
                       <td className="px-4 py-3 border-r border-slate-100 text-slate-600 text-xs">{p.document_type_report || '—'}</td>
                       <td className="px-4 py-3 border-r border-slate-100 text-slate-600">{p.department}</td>
                       <td className="px-4 py-3 border-r border-slate-100 text-slate-700 font-medium whitespace-normal min-w-[150px]">{p.faculty_name}</td>
+                      <td className="px-4 py-3 border-r border-slate-100 text-slate-600 font-mono text-xs">{p.emp_id || '—'}</td>
                       <td className="px-4 py-3 text-center">
-                        <button 
-                          onClick={() => handleDelete(p.id, p.title, p.faculty_name, p._source || 'legacy')}
-                          className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors"
-                          title="Delete record"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => setEditPub({ ...p })}
+                            className="text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-50 transition-colors"
+                            title="Edit record"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(p.id, p.title, p.faculty_name, p._source || 'legacy')}
+                            className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors"
+                            title="Delete record"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                 ))}
@@ -416,6 +482,84 @@ export default function PublicationsReportPage() {
           )}
         </div>
       </div>
+
+      {/* Edit Publication Modal */}
+      {editPub && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white dark:bg-[#1E293B] rounded-2xl shadow-2xl w-full max-w-3xl my-auto flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-600 flex items-center justify-between bg-blue-50 dark:bg-slate-800 rounded-t-2xl shrink-0">
+              <div>
+                <h3 className="font-black text-[#0A3D8F] dark:text-blue-300 text-xl">Edit Publication</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Source: {editPub._source === 'live' ? 'Live Submission' : 'Legacy Upload'}</p>
+              </div>
+              <button onClick={() => setEditPub(null)} className="text-slate-400 hover:text-slate-600 bg-white dark:bg-slate-700 p-2 rounded-full shadow-sm">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto space-y-4">
+              {([
+                { label: 'Title', key: 'title', type: 'textarea' },
+                { label: 'Authors', key: 'authors', type: 'textarea' },
+                { label: 'Source Title (Journal/Conference)', key: 'source_title', type: 'text' },
+                { label: 'DOI', key: 'doi', type: 'text' },
+                { label: 'Year', key: 'year', type: 'number' },
+                { label: 'Volume', key: 'volume', type: 'text' },
+                { label: 'Issue', key: 'issue', type: 'text' },
+                { label: 'Department', key: 'department', type: 'text' },
+                { label: 'Faculty Name', key: 'faculty_name', type: 'text' },
+                { label: 'Emp ID', key: 'emp_id', type: 'text' },
+                { label: 'Doc Type (Scopus)', key: 'document_type_scopus', type: 'text' },
+              ] as { label: string; key: string; type: string }[]).map(({ label, key, type }) => (
+                <div key={key}>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{label}</label>
+                  {type === 'textarea' ? (
+                    <textarea
+                      rows={2}
+                      value={editPub[key] || ''}
+                      onChange={e => setEditPub((prev: any) => ({ ...prev, [key]: e.target.value }))}
+                      className="w-full border border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <input
+                      type={type}
+                      value={editPub[key] || ''}
+                      onChange={e => setEditPub((prev: any) => ({ ...prev, [key]: e.target.value }))}
+                      className="w-full border border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  )}
+                </div>
+              ))}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Doc Type (Report)</label>
+                <select
+                  value={editPub.document_type_report || ''}
+                  onChange={e => setEditPub((prev: any) => ({ ...prev, document_type_report: e.target.value }))}
+                  className="w-full border border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">— Select —</option>
+                  <option value="SCI">SCI</option>
+                  <option value="Scopus/WoS Journals">Scopus/WoS Journals</option>
+                  <option value="Scopus/WoS Conference/Book Chapter/Others">Scopus/WoS Conference/Book Chapter/Others</option>
+                  <option value="Student Publication">Student Publication</option>
+                </select>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 flex justify-end gap-3 rounded-b-2xl shrink-0">
+              <button onClick={() => setEditPub(null)} className="px-5 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-100 transition-all text-sm">
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={editSaving}
+                className="px-6 py-2 rounded-xl bg-[#0A3D8F] text-white font-bold hover:bg-blue-800 transition-all text-sm disabled:opacity-50 flex items-center gap-2"
+              >
+                {editSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                {editSaving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

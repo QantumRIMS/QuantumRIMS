@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Download, ExternalLink, X, Upload, Loader2, Info, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, ExternalLink, X, Upload, Loader2, Info, Trash2, Pencil } from 'lucide-react'
 import { useAdminAuth } from '@/context/AdminAuthContext'
 
 export default function PatentsReportPage() {
@@ -27,6 +27,8 @@ export default function PatentsReportPage() {
   const [importing, setImporting] = useState(false)
   const [importMode, setImportMode] = useState<'append' | 'replace'>('append')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [editPatent, setEditPatent] = useState<any>(null)
+  const [editSaving, setEditSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleDelete = async (id: string, title: string, inventors: string) => {
@@ -51,6 +53,47 @@ export default function PatentsReportPage() {
     } catch (e: any) {
       console.error(e)
       alert('Error deleting record: ' + e.message)
+    }
+  }
+
+  const handleSaveEditPatent = async () => {
+    if (!editPatent || !token) return
+    setEditSaving(true)
+    try {
+      const res = await fetch(`/api/admin/reports/patents/${editPatent.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          title: editPatent.title,
+          inventors: editPatent.inventors,
+          applicants: editPatent.applicants,
+          assignee: editPatent.assignee,
+          department: editPatent.department,
+          application_number: editPatent.application_number,
+          status: editPatent.status,
+          filed_date: editPatent.filed_date || null,
+          published_or_granted_date: editPatent.published_or_granted_date || null,
+          publication_or_grant_number: editPatent.publication_or_grant_number,
+          academic_year: editPatent.academic_year,
+          institute_faculty: editPatent.institute_faculty,
+          name_of_faculty: editPatent.name_of_faculty,
+          type: editPatent.type,
+          proof_link: editPatent.proof_link,
+          patent_type: editPatent.patent_type,
+          jurisdiction: editPatent.jurisdiction,
+        })
+      })
+      if (res.ok) {
+        setPatents(prev => prev.map(p => p.id === editPatent.id ? { ...p, ...editPatent } : p))
+        setEditPatent(null)
+      } else {
+        const err = await res.json()
+        alert(err.error || 'Failed to save')
+      }
+    } catch (e: any) {
+      alert('Error saving: ' + e.message)
+    } finally {
+      setEditSaving(false)
     }
   }
 
@@ -516,6 +559,13 @@ export default function PatentsReportPage() {
                           <button onClick={() => setViewPatent(p)} className="text-xs font-bold text-white bg-[#0A3D8F] hover:bg-blue-800 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
                             View More
                           </button>
+                          <button
+                            onClick={() => setEditPatent({ ...p })}
+                            className="text-blue-500 hover:text-blue-700 p-1.5 rounded hover:bg-blue-50 transition-colors"
+                            title="Edit record"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
                           <button 
                             onClick={() => handleDelete(p.id, p.title, p.inventors)}
                             className="text-red-500 hover:text-red-700 p-1.5 rounded hover:bg-red-50 transition-colors"
@@ -643,6 +693,116 @@ export default function PatentsReportPage() {
                     <ExternalLink className="w-4 h-4" /> View Source Proof
                   </a>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Patent Modal */}
+        {editPatent && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-auto flex flex-col max-h-[90vh]">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-blue-50 rounded-t-2xl shrink-0">
+                <div>
+                  <h3 className="font-black text-[#0A3D8F] text-xl">Edit Patent</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">{editPatent.application_number}</p>
+                </div>
+                <button onClick={() => setEditPatent(null)} className="text-slate-400 hover:text-slate-600 bg-white p-2 rounded-full shadow-sm">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 overflow-y-auto space-y-4">
+                {([
+                  { label: 'Title', key: 'title', type: 'textarea' },
+                  { label: 'Inventors', key: 'inventors', type: 'textarea' },
+                  { label: 'Applicants', key: 'applicants', type: 'text' },
+                  { label: 'Assignee', key: 'assignee', type: 'text' },
+                  { label: 'Department', key: 'department', type: 'text' },
+                  { label: 'Application Number', key: 'application_number', type: 'text' },
+                  { label: 'Pub/Grant Number', key: 'publication_or_grant_number', type: 'text' },
+                  { label: 'Academic Year', key: 'academic_year', type: 'text' },
+                  { label: 'Filed Date', key: 'filed_date', type: 'date' },
+                  { label: 'Pub/Grant Date', key: 'published_or_granted_date', type: 'date' },
+                  { label: 'Faculty / Institute', key: 'institute_faculty', type: 'text' },
+                  { label: 'Name of Faculty', key: 'name_of_faculty', type: 'text' },
+                  { label: 'Proof Link', key: 'proof_link', type: 'text' },
+                ] as { label: string; key: string; type: string }[]).map(({ label, key, type }) => (
+                  <div key={key}>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{label}</label>
+                    {type === 'textarea' ? (
+                      <textarea
+                        rows={2}
+                        value={editPatent[key] || ''}
+                        onChange={e => setEditPatent((prev: any) => ({ ...prev, [key]: e.target.value }))}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    ) : (
+                      <input
+                        type={type}
+                        value={editPatent[key] || ''}
+                        onChange={e => setEditPatent((prev: any) => ({ ...prev, [key]: e.target.value }))}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    )}
+                  </div>
+                ))}
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Status</label>
+                    <select
+                      value={editPatent.status || ''}
+                      onChange={e => setEditPatent((prev: any) => ({ ...prev, status: e.target.value }))}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="Published">Published</option>
+                      <option value="Granted">Granted</option>
+                      <option value="Design Grant">Design Grant</option>
+                      <option value="Filed">Filed</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Patent Type</label>
+                    <select
+                      value={editPatent.patent_type || 'Utility'}
+                      onChange={e => setEditPatent((prev: any) => ({ ...prev, patent_type: e.target.value }))}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="Utility">Utility</option>
+                      <option value="Design">Design</option>
+                      <option value="Copyright">Copyright</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Jurisdiction</label>
+                    <select
+                      value={editPatent.jurisdiction || ''}
+                      onChange={e => setEditPatent((prev: any) => ({ ...prev, jurisdiction: e.target.value }))}
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Unconfirmed</option>
+                      <option value="India">India</option>
+                      <option value="USA">USA</option>
+                      <option value="UK">UK</option>
+                      <option value="Australia">Australia</option>
+                      <option value="EPO">EPO</option>
+                      <option value="WIPO">WIPO</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 rounded-b-2xl shrink-0">
+                <button onClick={() => setEditPatent(null)} className="px-5 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-100 transition-all text-sm">
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEditPatent}
+                  disabled={editSaving}
+                  className="px-6 py-2 rounded-xl bg-[#0A3D8F] text-white font-bold hover:bg-blue-800 transition-all text-sm disabled:opacity-50 flex items-center gap-2"
+                >
+                  {editSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {editSaving ? 'Saving...' : 'Save Changes'}
+                </button>
               </div>
             </div>
           </div>

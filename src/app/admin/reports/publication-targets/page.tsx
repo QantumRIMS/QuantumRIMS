@@ -567,12 +567,12 @@ export default function PublicationTargetsPage() {
                       <tr>
                         <th className="px-4 py-3 font-medium">Faculty</th>
                         <th className="px-4 py-3 font-medium text-center">SCI (T/A)</th>
-                        <th className="px-4 py-3 font-medium text-center">Journal (T/A)</th>
-                        <th className="px-4 py-3 font-medium text-center">Conf (T/A)</th>
-                        <th className="px-4 py-3 font-medium text-center">Total (T/A)</th>
+                        <th className="px-4 py-3 font-medium text-center">Scopus/WoS Journals (T/A)</th>
+                        <th className="px-4 py-3 font-medium text-center">Scopus/WoS Conference/Book Chapter/Others (T/A)</th>
+                        <th className="px-4 py-3 font-medium text-center">Total Publication Target (T/A)</th>
                         <th className="px-4 py-3 font-medium">Achievement</th>
                         <th className="px-4 py-3 font-medium">Status</th>
-                        <th className="px-4 py-3 font-medium text-center whitespace-nowrap">Student Pub</th>
+                        <th className="px-4 py-3 font-medium text-center whitespace-nowrap">Student Publication Target</th>
                         <th className="px-4 py-3 font-medium text-center whitespace-nowrap">Utility Patent</th>
                         <th className="px-4 py-3 font-medium text-center whitespace-nowrap">Design Patent</th>
                         <th className="px-4 py-3 font-medium text-center">Copyright</th>
@@ -598,13 +598,14 @@ export default function PublicationTargetsPage() {
                           key={d.id || d.emp_id || idx}
                           className={`hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors ${isPoor && !isEditable ? 'bg-red-50/50 dark:bg-red-900/10' : isOne && !isEditable ? 'bg-orange-50/50 dark:bg-orange-900/10' : ''}`}
                         >
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-3 min-w-[200px]">
                               <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                                 {isPoor && !isEditable && <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />}
                                 {isOne && !isPoor && !isEditable && <span className="w-1.5 h-1.5 rounded-full bg-orange-500 flex-shrink-0" />}
                                 {d.name}
                               </div>
                               <div className="text-xs text-slate-500 dark:text-slate-400">{d.dept}</div>
+                              <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">{d.emp_id}</div>
                             </td>
                             
                             {/* SCI */}

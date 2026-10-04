@@ -41,7 +41,6 @@ export async function DELETE(request: Request, props: { params: Promise<{ id: st
             count: linkedIncentives.length
           }, { status: 409 })
         } else {
-          // Delete linked incentive applications
           const { error: deleteIncError } = await admin
             .from('incentive_applications')
             .delete()
@@ -50,7 +49,6 @@ export async function DELETE(request: Request, props: { params: Promise<{ id: st
         }
       }
 
-      // 2. Fetch the submission details to get Cloudinary URLs
       const { data: submission, error: fetchSubError } = await admin
         .from('submissions')
         .select('proof_full_paper_url, proof_scopus_url, proof_published_url')
@@ -59,7 +57,6 @@ export async function DELETE(request: Request, props: { params: Promise<{ id: st
 
       if (fetchSubError) throw fetchSubError
 
-      // 3. Delete from submissions table
       const { error: deleteSubError } = await admin
         .from('submissions')
         .delete()
@@ -67,7 +64,6 @@ export async function DELETE(request: Request, props: { params: Promise<{ id: st
 
       if (deleteSubError) throw deleteSubError
 
-      // 4. Delete files from Cloudinary
       if (submission) {
         await deleteCloudinaryFiles([
           submission.proof_full_paper_url,
@@ -76,7 +72,6 @@ export async function DELETE(request: Request, props: { params: Promise<{ id: st
         ])
       }
     } else {
-      // Delete from legacy_publications
       const { error: deleteLegacyError } = await admin
         .from('legacy_publications')
         .delete()
@@ -88,6 +83,52 @@ export async function DELETE(request: Request, props: { params: Promise<{ id: st
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('DELETE publications error:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params
+  const token = extractToken(request)
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await verifyToken(token)
+  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const isAdmin = await requireAdmin(auth)
+  if (!isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const { searchParams } = new URL(request.url)
+  const source = searchParams.get('source') || 'legacy'
+  const id = params.id
+  const admin = createAdminClient()
+
+  try {
+    const body = await request.json()
+
+    if (source === 'live') {
+      const allowed = ['authors', 'title', 'source_title', 'volume', 'issue', 'year',
+        'doi', 'department', 'faculty_name', 'doc_type_scopus', 'doc_type_report']
+      const updates: Record<string, any> = {}
+      for (const key of allowed) {
+        if (body[key] !== undefined) updates[key] = body[key]
+      }
+      const { error } = await admin.from('submissions').update(updates).eq('id', id)
+      if (error) throw error
+    } else {
+      const allowed = ['authors', 'title', 'source_title', 'volume', 'issue', 'year',
+        'doi', 'department', 'faculty_name', 'document_type_scopus', 'document_type_report',
+        'publication_month', 'publication_date', 'emp_id']
+      const updates: Record<string, any> = {}
+      for (const key of allowed) {
+        if (body[key] !== undefined) updates[key] = body[key]
+      }
+      const { error } = await admin.from('legacy_publications').update(updates).eq('id', id)
+      if (error) throw error
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error('PATCH publications error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

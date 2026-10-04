@@ -21,6 +21,9 @@ export async function GET(request: Request) {
   try {
     // We use the central logic which fetches everything, joins achievements, etc.
     let data = await getFacultyTargetsWithAchievement(academic_year, { includeNoTarget: true })
+    
+    // Completely exclude inactive "Other" departments from the targets dashboard
+    data = data.filter(d => !d.dept.startsWith('Other '))
 
     if (dept && dept !== 'all') {
       const lowerDept = dept.toLowerCase()

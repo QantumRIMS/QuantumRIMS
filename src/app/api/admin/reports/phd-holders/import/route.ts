@@ -9,7 +9,8 @@ export const revalidate = 0
 const PHD_COLUMN_MAP = {
   s_no: 'S.No',
   dept: 'Dept',
-  name: 'Name of the Faculty'
+  name: 'Name of the Faculty',
+  emp_id: 'Emp.ID'
 }
 
 export async function POST(request: Request) {
@@ -39,8 +40,9 @@ export async function POST(request: Request) {
       s_no: parseInt(r.s_no, 10) || null,
       dept: (r.dept || '').trim(),
       name: (r.name || '').trim(),
+      emp_id: (r.emp_id || '').trim(),
       academic_year: year
-    })).filter(r => r.name) // name is required
+    })).filter(r => r.name && r.emp_id) // name and emp_id are required
 
     if (newRows.length === 0) return NextResponse.json({ error: 'No valid names found in the spreadsheet' }, { status: 400 })
 

@@ -28,6 +28,7 @@ function submissionToPubShape(sub: any) {
     document_type_report: sub.doc_type_report,
     department: sub.department,
     faculty_name: sub.faculty_name,
+    emp_id: sub.emp_id || null,
     is_duplicate: false,
     proof_full_paper_url: sub.proof_full_paper_url || null,
     proof_scopus_url: sub.proof_scopus_url || null,
@@ -130,7 +131,7 @@ export async function GET(request: Request) {
       'S.No', 'Authors', 'Title', 'Source Title', 'Volume', 'Issue',
       'Year', 'Month', 'Date', 'DOI', 'Duplicates', 'Link',
       'Full Paper Link', 'Scopus Proof Link', 'Published Proof Link',
-      'Document Type Scopus', 'Document Type Report', 'Department', 'Faculty Name'
+      'Document Type Scopus', 'Document Type Report', 'Department', 'Faculty Name', 'Emp ID'
     ]
 
     const headerRow = ws.addRow(headers)
@@ -142,8 +143,7 @@ export async function GET(request: Request) {
     })
     headerRow.height = 30
 
-    // Column widths: original 16 cols + 3 new proof cols
-    const colWidths = [10, 30, 40, 30, 15, 15, 15, 15, 15, 30, 15, 40, 40, 40, 40, 25, 25, 20, 20]
+    const colWidths = [10, 30, 40, 30, 15, 15, 15, 15, 15, 30, 15, 40, 40, 40, 40, 25, 25, 20, 20, 20]
     colWidths.forEach((w, i) => { ws.getColumn(i + 1).width = w })
 
     combined.forEach(row => {
@@ -167,6 +167,7 @@ export async function GET(request: Request) {
         row.document_type_report || '',
         row.department || '',
         row.faculty_name || '',
+        row.emp_id || '',
       ])
 
       // Make proof URL cells clickable hyperlinks when present

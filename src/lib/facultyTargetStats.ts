@@ -148,21 +148,14 @@ export async function getFacultyAchievement(
 
   const { data: legacyRows, error: legacyError } = await admin
     .from('legacy_publications')
-    .select('document_type_report, faculty_name')
-    .ilike('faculty_name', name) // ilike handles case + partial but we validate below
+    .select('document_type_report')
+    .eq('emp_id', emp_id)
     .eq('year', yearInt)
 
   if (legacyError) {
     console.error(`[facultyTargetStats] legacy_publications error for ${emp_id}:`, legacyError.message)
   } else {
     for (const row of legacyRows ?? []) {
-      const rowName = normalizeName(row.faculty_name ?? '')
-      if (rowName !== normalizedName) {
-        // ilike returned a partial match — skip it (e.g. 'Dr. Raja L (T)' when looking for 'Dr. Raja L')
-        unmatchedLegacyCount++
-        console.warn(`[facultyTargetStats] Legacy name mismatch for ${emp_id}: stored="${row.faculty_name}" vs expected="${name}"`)
-        continue
-      }
       const cat = classifyDocType(row.document_type_report)
       if (cat) {
         counts[cat]++
@@ -353,8 +346,9 @@ export async function getFacultyTargetsWithAchievement(
   while (hasMoreLegacy) {
     const { data: legacyRows, error: legacyError } = await admin
       .from('legacy_publications')
-      .select('faculty_name, document_type_report')
+      .select('emp_id, document_type_report')
       .eq('year', yearInt)
+      .not('emp_id', 'is', null)
       .range(legacyPage * legacyPageSize, (legacyPage + 1) * legacyPageSize - 1)
 
     if (legacyError) {
@@ -364,8 +358,7 @@ export async function getFacultyTargetsWithAchievement(
     if (!legacyRows || legacyRows.length === 0) { hasMoreLegacy = false; break }
 
     for (const row of legacyRows) {
-      const normalized = normalizeName(row.faculty_name ?? '')
-      const empId = nameToEmpId.get(normalized)
+      const empId = row.emp_id
       if (!empId) continue // Not in our target set
 
       const cat = classifyDocType(row.document_type_report)
@@ -452,14 +445,14 @@ export async function getFacultyTargetsWithAchievement(
   // 4d. Student Publications — from legacy_publications, category = 'Student Publication'
   const { data: studentPubRows } = await admin
     .from('legacy_publications')
-    .select('faculty_name')
+    .select('emp_id')
     .eq('year', parseInt(academic_year))
     .eq('document_type_report', 'Student Publication')
+    .not('emp_id', 'is', null)
 
   if (studentPubRows) {
     for (const row of studentPubRows) {
-      const norm = normalizeName(row.faculty_name ?? '')
-      const entry = allEntries.find(e => normalizeName(e.name) === norm)
+      const entry = targetMap.get(row.emp_id)
       if (entry) entry.achievement.student_publication_achieved++
     }
   }
